@@ -36,6 +36,9 @@ parser.add_argument('--verilog_example_dir',
 parser.add_argument('--oai_config',
                     help="OAI_CONFIG_LIST",
                     default="OAI_CONFIG_LIST")
+parser.add_argument('--max_tokens',
+                    help="LLM_max_tokens",
+                    default=10240)
 args = parser.parse_args()
 print(args)
 
@@ -66,6 +69,8 @@ case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
 
 # llm configurations
 gpt4_config_list = config_list_from_json(env_or_file=args.oai_config)
+
+gpt4_config_list[0]["max_tokens"] = args.max_tokens
 
 # llama3 settings: Used for comparison
 llm_configs = {
