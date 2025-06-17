@@ -294,18 +294,31 @@ class TaskPlanAgent:
             VerilogExamples=GeneralExample,
             SubtaskExample=SUBTASK_FORMAT_EXAMPLE)
         # print("rough plan prompt: ", module_plan_prompt)
-        rough_plan = self.plan_agent.initiate_chat(message=module_plan_prompt)
-        return json.loads(self.json_parser(rough_plan))
-        
+        # rough_plan = self.plan_agent.initiate_chat(message=module_plan_prompt)
+        # return json.loads(self.json_parser(rough_plan))
+        for _ in range(5):
+            rough_plan = self.plan_agent.initiate_chat(message=module_plan_prompt)
+            try:
+                return json.loads(self.json_parser(rough_plan))
+            except json.JSONDecodeError:
+                print("error: ",rough_plan)
+                continue
+        raise ValueError("Failed to parse rough plan after 5 attempts.")
 
     def _extract_entity(self, module: str):
         entity_extract_prompt = Verilog_Signal_Extract_Template_Prompt.format(
             ModulePrompt=module,
             SignalExtractRule=Verilog_signal_extraction_hint)
         # print("entity extraction prompt: ", entity_extract_prompt)
-        entities = self.entity_extraction_agent.initiate_chat(message=entity_extract_prompt)
-        return json.loads(self.json_parser(entities))
-        
+        # entities = self.entity_extraction_agent.initiate_chat(message=entity_extract_prompt)
+        # return json.loads(self.json_parser(entities))
+        for _ in range(5):
+            entities = self.entity_extraction_agent.initiate_chat(message=entity_extract_prompt)
+            try:
+                return json.loads(self.json_parser(entities))
+            except json.JSONDecodeError:
+                continue
+        raise ValueError("Failed to parse extract entity after 5 attempts.")
         
         
     def make_plans(self, module: str):
