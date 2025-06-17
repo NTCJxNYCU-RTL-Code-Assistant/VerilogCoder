@@ -33,6 +33,9 @@ parser.add_argument('--verilog_tmp_dir',
 parser.add_argument('--verilog_example_dir',
                     help="Verilog question set dir",
                     default="./verilog_eval_v2/")
+parser.add_argument('--oai_config',
+                    help="OAI_CONFIG_LIST",
+                    default="OAI_CONFIG_LIST")
 args = parser.parse_args()
 print(args)
 
@@ -50,7 +53,11 @@ else:
 # user_task_ids = {'circuit10'}
 # user_task_ids = {'lfsr32'}
 
-with open(args.verilog_example_dir + "/problems.txt", "r") as f:
+# with open(args.verilog_example_dir + "/problems.txt", "r") as f:
+#     user_task_ids = set(
+#         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
+
+with open(args.verilog_example_dir + "/problems_part.txt", "r") as f:
     user_task_ids = set(
         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
         
@@ -58,7 +65,7 @@ case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
                                   task_ids=user_task_ids)
 
 # llm configurations
-gpt4_config_list = config_list_from_json(env_or_file="OAI_CONFIG_LIST")
+gpt4_config_list = config_list_from_json(env_or_file=args.oai_config)
 
 # llama3 settings: Used for comparison
 llm_configs = {
