@@ -240,7 +240,9 @@ $ python ./hardware_agent/examples/VerilogCoder/run_verilog_coder.py \
 	--generate_plan_dir ./artifacts_test/plans/ \ # 指定生成 plan 的資料夾路徑
 	--generate_verilog_dir ./artifacts_test/generate_verilog/ \ # 指定生成完成的 verilog 資料夾路徑
 	--verilog_tmp_dir ./artifacts_test/verilog_tmp_dir/ \ # 指定 agent 生成暫存檔的資料夾路徑
-	--verilog_example_dir ./hardware_agent/examples/VerilogCoder/verilog-eval-v2/dataset_dumpall/ # 指定測資所在的資料夾
+	--verilog_example_dir ./hardware_agent/examples/VerilogCoder/verilog-eval-v2/dataset_dumpall/ \ # 指定測資所在的資料夾
+	--oai_config OAI_CONFIG_LIST \ #設定要使用哪一個 LLM 的 config
+	--max_tokens 10240 #設定 LLM 的 max_tokens
 	> ./artifacts_test/log # 將輸出導至 log 檔
 ```
 
