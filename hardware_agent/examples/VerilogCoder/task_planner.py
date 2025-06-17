@@ -146,15 +146,14 @@ class TaskPlanAgent:
                     'description':
                     "Assistant who verify the subtasks and plan from planner match the user instruction.",
                     'is_termination_msg':
-                    lambda x: "TERMINATE" in x.get("content", "").
-                    rstrip().endswith("TERMINATE"),
+                    lambda x: "TERMINATE" in x.get("content", ""),
                     'max_consecutive_auto_reply':
                     20,
                     # the default system message of the AssistantAgent is overwritten here
                     'system_message':
                     "You are a verilog RTL designer. You verify the subtasks and plan from planner.\nLet's think step by step."
                     " You need to identify the mismatches of the plan and user instruction, and any rule violations in [Rules] of the plan. Suggest "
-                    "planner modify the plan if needed. Always return the plan in json format. If the plan is good enough, Reply TERMINATE outside of ```json and ``` bracket in the response.",
+                    "planner modify the plan if needed. If the plan is good enough, Reply TERMINATE",
                 }
             }
         ]
