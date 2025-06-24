@@ -184,6 +184,11 @@ class OpenAIClient:
             full_tool_calls: Optional[List[Optional[Dict[str, Any]]]] = None
 
             # Send the chat completion request to OpenAI's API and process the response in chunks
+            old_context = []
+            current_context = ""
+            max_history = 30
+            time = 0
+            stop_flag = False
             for chunk in completions.create(**params):
                 if chunk.choices:
                     for choice in chunk.choices:
@@ -230,12 +235,36 @@ class OpenAIClient:
                         # If content is present, print it to the terminal and update response variables
                         if content is not None:
                             iostream.print(content, end="", flush=True)
+                            current_context += content
                             response_contents[choice.index] += content
                             completion_tokens += 1
+                            if "\n" in current_context:
+                                lines = current_context.split("\n")
+                                for line in lines[:-1]:
+                                    clean_line = line.strip()
+                                    if clean_line and clean_line in old_context:
+                                        if time < 3:
+                                            time += 1
+                                        else: 
+                                            stop_flag = True
+                                            break
+                                    else:
+                                        time = 0
+                                    if clean_line:
+                                        old_context.append(clean_line)
+                                        if len(old_context) > max_history:
+                                            old_context.pop(0)
+                                current_context = lines[-1]
+                            if stop_flag:
+                                break
+
+                            
                         else:
                             # iostream.print()
                             pass
-
+                if stop_flag:
+                    break
+            
             # Reset the terminal text color
             iostream.print("\033[0m\n")
 
@@ -257,6 +286,8 @@ class OpenAIClient:
             for i in range(len(response_contents)):
                 if OPENAIVERSION >= "1.5":  # pragma: no cover
                     # OpenAI versions 1.5.0 and above
+                    if not finish_reasons[i] :
+                        finish_reasons[i] = "stop"
                     choice = Choice(
                         index=i,
                         finish_reason=finish_reasons[i],

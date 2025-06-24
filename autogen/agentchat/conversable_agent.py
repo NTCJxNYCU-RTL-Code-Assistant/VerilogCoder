@@ -1339,6 +1339,7 @@ class ConversableAgent(LLMAgent):
             context=messages[-1].pop("context", None),
             messages=all_messages,
             cache=cache,
+            stream=True
         )
         # print('[_generate_oai_reply_from_client] context = ', messages[-1].pop("context", None), "\n messages = ", all_messages)
         extracted_response = llm_client.extract_text_or_completion_object(response)[0]

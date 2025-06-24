@@ -52,7 +52,7 @@ else:
 
 # Load verilog problem sets
 # Add questions
-# user_task_ids = {'zero'}
+user_task_ids = {'zero'}
 # user_task_ids = {'circuit10'}
 # user_task_ids = {'lfsr32'}
 
@@ -60,9 +60,9 @@ else:
 #     user_task_ids = set(
 #         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
 
-with open(args.verilog_example_dir + "/problems_part.txt", "r") as f:
-    user_task_ids = set(
-        ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
+# with open(args.verilog_example_dir + "/problems_part.txt", "r") as f:
+#     user_task_ids = set(
+#         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
         
 case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
                                   task_ids=user_task_ids)
@@ -70,7 +70,11 @@ case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
 # llm configurations
 gpt4_config_list = config_list_from_json(env_or_file=args.oai_config)
 
-gpt4_config_list[0]["max_tokens"] = args.max_tokens
+if gpt4_config_list[0]["model"] != "o3":
+    gpt4_config_list[0]["max_tokens"] = args.max_tokens
+else:
+    gpt4_config_list[0]["max_completion_tokens"] = args.max_tokens
+    gpt4_config_list[0]["temperature"] = 1
 
 # llama3 settings: Used for comparison
 llm_configs = {
