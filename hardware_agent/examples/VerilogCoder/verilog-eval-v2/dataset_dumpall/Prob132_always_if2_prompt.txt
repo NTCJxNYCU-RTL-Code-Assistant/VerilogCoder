@@ -1,5 +1,5 @@
 
-Consider the following adder-subtractor with a zero flag:
+Consider the following module:
 
   module TopModule (
       input      cpu_overheated,
@@ -23,4 +23,3 @@ Consider the following adder-subtractor with a zero flag:
 
 Unfortunately, this module has a bug. Implement a new version of this
 module that fixes the bug.
-
