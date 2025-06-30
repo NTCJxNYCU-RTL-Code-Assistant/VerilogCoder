@@ -156,7 +156,7 @@ class OpenAIClient:
                 choice.message if choice.message.function_call is not None else choice.message.content  # type: ignore [union-attr]
                 for choice in choices
             ]
-
+            
     def create(self, params: Dict[str, Any]) -> ChatCompletion:
         """Create a completion for a given config using openai's client.
 
@@ -177,7 +177,7 @@ class OpenAIClient:
             completion_tokens = 0
 
             # Set the terminal text color to green
-            iostream.print("\033[32m", end="")
+            # iostream.print("\033[32m", end="")
 
             # Prepare for potential function call
             full_function_call: Optional[Dict[str, Any]] = None
@@ -189,9 +189,14 @@ class OpenAIClient:
             max_history = 30
             time = 0
             stop_flag = False
+            print(">>>> params[messages]")
+            print(params["messages"])
+            print("<<<<")
             for chunk in completions.create(**params):
                 if chunk.choices:
                     for choice in chunk.choices:
+                        if stop_flag:
+                            continue
                         content = choice.delta.content
                         tool_calls_chunks = choice.delta.tool_calls
                         finish_reasons[choice.index] = choice.finish_reason
@@ -255,18 +260,12 @@ class OpenAIClient:
                                         if len(old_context) > max_history:
                                             old_context.pop(0)
                                 current_context = lines[-1]
-                            if stop_flag:
-                                break
 
-                            
                         else:
                             # iostream.print()
                             pass
-                if stop_flag:
-                    break
-            
             # Reset the terminal text color
-            iostream.print("\033[0m\n")
+            # iostream.print("\033[0m\n")
 
             # Prepare the final ChatCompletion object based on the accumulated data
             model = chunk.model.replace("gpt-35", "gpt-3.5")  # hack for Azure API
@@ -277,11 +276,7 @@ class OpenAIClient:
                 created=chunk.created,
                 object="chat.completion",
                 choices=[],
-                usage=CompletionUsage(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=prompt_tokens + completion_tokens,
-                ),
+                usage=chunk.usage,
             )
             for i in range(len(response_contents)):
                 if OPENAIVERSION >= "1.5":  # pragma: no cover
@@ -311,12 +306,15 @@ class OpenAIClient:
                             tool_calls=full_tool_calls,
                         ),
                     )
-
+                
                 response.choices.append(choice)
         else:
             # If streaming is not enabled, send a regular chat completion request
             params = params.copy()
             params["stream"] = False
+            print(">>>> params[messages]")
+            print(params["messages"])
+            print("<<<<")
             response = completions.create(**params)
 
         return response
@@ -759,7 +757,7 @@ class OpenAIWrapper:
                 )
             if field not in d:
                 d[field] = ""
-            if isinstance(new_value, str):
+            if isinstance(new_value, str) and field != "type":
                 d[field] += getattr(chunk, field)
             else:
                 d[field] = new_value
