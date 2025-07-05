@@ -177,9 +177,13 @@ class VerilogCoder:
         self.code_debug_agent.revalidate_llm_config()
 
     # write Verilog module
-    def write_Verilog_module(self, cur_task_id, spec, golden_test_bench,
-                             plan_filename: str= "",
-                             completed_module: str="",
+    def write_Verilog_module(self,
+                             cur_task_id,
+                             spec,
+                             golden_test_bench,
+                             plan_filename: str = "",
+                             images: list[str] | None = None,
+                             completed_module: str = "",
                              have_plans: bool = False,
                              skip_kg_plan: bool = False,
                              have_completed_code: bool = False):
@@ -188,7 +192,10 @@ class VerilogCoder:
 
         if not have_plans:
             # Load plan from JSON file to dictionary
-            task_flow_plans = self.make_plans(cur_task_id=cur_task_id, module=spec, skip_kg_plan=skip_kg_plan)
+            task_flow_plans = self.make_plans(cur_task_id=cur_task_id,
+                                              module=spec,
+                                              images=images,
+                                              skip_kg_plan=skip_kg_plan)
         else:
             with open(plan_filename, 'r') as json_file:
                 task_flow_plans = json.load(json_file)
@@ -218,14 +225,26 @@ class VerilogCoder:
         return success
 
     # Make plans for writing the module according to the spec
-    def make_plans(self, cur_task_id, module: str, skip_kg_plan: bool=False, show_plan: bool=False):
+    def make_plans(self,
+                   cur_task_id,
+                   module: str,
+                   images: list[str] | None = None,
+                   skip_kg_plan: bool = False,
+                   show_plan: bool = False):
         """
         module: input module description
         """
         self.revalidate_agents()
-        rough_plan, signal_nodes_extract = self.task_planner_agent.make_plans(module=module)
-        print('rough_plan = ', rough_plan, '\n\nentity extraction = ', signal_nodes_extract, flush=True)
-        with open(self.plan_output_dir + "/" + cur_task_id + "_rough_plan.json", 'w') as json_file:
+        rough_plan, signal_nodes_extract = self.task_planner_agent.make_plans(
+            module=module, images=images)
+        print('rough_plan = ',
+              rough_plan,
+              '\n\nentity extraction = ',
+              signal_nodes_extract,
+              flush=True)
+        with open(
+                self.plan_output_dir + "/" + cur_task_id + "_rough_plan.json",
+                'w') as json_file:
             json.dump(rough_plan, json_file)
         # create the kg graph
         if not skip_kg_plan:

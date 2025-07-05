@@ -16,6 +16,8 @@ from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProx
 from autogen.agentchat.contrib.phi_image_agent import PhiVConversableAgent
 from autogen.agentchat.os_conversable_agent import OS_ConversableAgent
 from autogen.agentchat.os_assistant_agent import OS_AssistantAgent
+from autogen.agentchat.chat import ChatResult
+
 
 # Normally user don't need to change the termination msg
 def termination_msg(x):
@@ -252,7 +254,10 @@ class HardwareAgent:
 
     # Mark: start the chat to proxy
     # Need to input the pure text question after using prompt formatting
-    def initiate_chat(self, use_cache: bool=False, cache_seed: int=43, **kwargs) -> str:
+    def initiate_chat(self,
+                      use_cache: bool = False,
+                      cache_seed: int = 43,
+                      **kwargs) -> str | ChatResult:
 
         if self.manager is None:
             # one assistant + one proxy

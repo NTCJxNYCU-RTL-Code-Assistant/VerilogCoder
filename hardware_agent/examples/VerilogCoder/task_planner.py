@@ -283,7 +283,9 @@ class TaskPlanAgent:
         assert (result is not None)
         return result
 
-    def _create_rough_plans(self, module: str):
+    def _create_rough_plans(self,
+                            module: str,
+                            images: list[str] | None = None):
 
         module_plan_prompt = Verilog_Plan_Template_Prompt.format(
             ModulePrompt=module,
@@ -297,7 +299,8 @@ class TaskPlanAgent:
         # rough_plan = self.plan_agent.initiate_chat(message=module_plan_prompt)
         # return json.loads(self.json_parser(rough_plan))
         for _ in range(5):
-            rough_plan = self.plan_agent.initiate_chat(message=module_plan_prompt)
+            rough_plan = self.plan_agent.initiate_chat(
+                message=module_plan_prompt, images=images)
             try:
                 return json.loads(self.json_parser(rough_plan))
             except json.JSONDecodeError:
@@ -320,14 +323,12 @@ class TaskPlanAgent:
                 continue
         raise ValueError("Failed to parse extract entity after 5 attempts.")
         
-        
-    def make_plans(self, module: str):
+    def make_plans(self, module: str, images: list[str] | None = None):
 
         # make the rough plan
-        rough_plan = self._create_rough_plans(module=module)
+        rough_plan = self._create_rough_plans(module=module, images=images)
         if 'subtasks' not in rough_plan.keys():
-            print("[Error] Plan format error!\n", rough_plan)
-            return
+            raise ValueError("[Error] Plan format error!\n", rough_plan)
         # print('rough plan = ', rough_plan)
         # Mark: Assign the task plan manually to follow the sequential for writing the same file
         for i in range(len(rough_plan['subtasks'])):
@@ -342,9 +343,8 @@ class TaskPlanAgent:
         if 'signal' not in signal_nodes_extract.keys() or \
             'state_transitions_description' not in signal_nodes_extract.keys() or \
             'signal_examples' not in signal_nodes_extract.keys():
-            print("[Error] Entity extraction format error!\n",
+            raise ValueError("[Error] Entity extraction format error!\n",
                   signal_nodes_extract)
-            return
         # print('entity extraction = ', signal_nodes_extract)
         return copy.deepcopy(rough_plan['subtasks']), signal_nodes_extract
 

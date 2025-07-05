@@ -893,6 +893,7 @@ class ConversableAgent(LLMAgent):
         summary_method: Optional[Union[str, Callable]] = DEFAULT_SUMMARY_METHOD,
         summary_args: Optional[dict] = {},
         message: Optional[Union[Dict, str, Callable]] = None,
+        images: Optional[list[str]] = None,
         **kwargs,
     ) -> ChatResult:
         """Initiate a chat with the recipient agent.
@@ -1000,13 +1001,18 @@ class ConversableAgent(LLMAgent):
                     msg2send = self.generate_reply(messages=self.chat_messages[recipient], sender=recipient)
                 if msg2send is None:
                     break
-                self.send(msg2send, recipient, request_reply=True, silent=silent)
+                msg2send = self._add_images_to_chat(msg2send, images)
+                self.send(msg2send,
+                          recipient,
+                          request_reply=True,
+                          silent=silent)
         else:
             self._prepare_chat(recipient, clear_history)
             if isinstance(message, Callable):
                 msg2send = message(_chat_info["sender"], _chat_info["recipient"], kwargs)
             else:
                 msg2send = self.generate_init_message(message, **kwargs)
+            msg2send = self._add_images_to_chat(msg2send, images)
             self.send(msg2send, recipient, silent=silent)
         summary = self._summarize_chat(
             summary_method,
@@ -1024,6 +1030,23 @@ class ConversableAgent(LLMAgent):
             human_input=self._human_input,
         )
         return chat_result
+
+    def _add_images_to_chat(self,
+                            message: Union[Dict, str],
+                            images: Optional[list[str]] = None):
+        if images is None or len(images) == 0:
+            return message
+        if isinstance(message, str):
+            message = {"content": [{"type": "text", "text": message}]}
+        for img in images:
+            message["content"].append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{img}"
+                }
+            })
+        print("[DEBUG] _add_images_to_chat message = ", message)
+        return message
 
     async def a_initiate_chat(
         self,

@@ -8,6 +8,7 @@ import json
 import re
 import matplotlib.pyplot as plt
 import os
+import base64
 
 # Unsolved problem set
 unsolved_fsm_tasks = ['review2015_fsmonehot', '2014_q3fsm', 'm2014_q6', 'fsm_serial', '2013_q2bfsm', 'fsm_hdlc',
@@ -117,31 +118,39 @@ def load_verilog_eval2_cases(file_dir: str, task_ids: set[str]=set(), verbose_le
 
     task_map = {}
     data_tbl = []
+
+    ## content type: test, ref, prompt, images-xxx
+
     for file in files:
         file_name_fields = file.split('.')
-        # file_type = file_name_fields[-1]
         problem_fields = file_name_fields[0].split('_')
         task_id = '_'.join(problem_fields[1:-1])
-        content_type = problem_fields[-1]
+
         if task_id not in task_ids:
             continue
-        print('reading ', file_dir, file)
-        with open(file_dir + "/" + file, 'r') as f:
-            text = f.read()
-        f.close()
+
         if task_id not in task_map:
-            data_tbl.append({'task_id': task_id})
+            data_tbl.append({'task_id': task_id, 'images': []})
             task_map[task_id] = len(data_tbl) - 1
+
+        content_type = problem_fields[-1]
+
+        if content_type.startswith('images-'):
+            print('reading image ', file_dir, file)
+            with open(file_dir + "/" + file, "rb") as image_file:
+                data_tbl[task_map[task_id]]['images'].append(
+                    base64.b64encode(image_file.read()).decode('utf-8'))
+
+        else:
+            print('reading ', file_dir, file)
+            with open(file_dir + "/" + file, 'r') as f:
+                text = f.read()
         data_tbl[task_map[task_id]][content_type] = text
 
     # combine the ref to test for running iverilog
     for task in data_tbl:
         task['test'] = task['test'] + "\n" + task['ref']
-        # for key in task:
-        #     print(key, ":", task[key])
-    # for key in data_tbl[0]:
-        # print(key)
-    # print(list(all_task_id))
+
     return data_tbl
 
 def get_taskids(files: list[str], task_ids: set[str], is_completed: bool=False):

@@ -36,9 +36,7 @@ parser.add_argument('--verilog_example_dir',
 parser.add_argument('--oai_config',
                     help="OAI_CONFIG_LIST",
                     default="OAI_CONFIG_LIST")
-parser.add_argument('--max_tokens',
-                    help="LLM_max_tokens",
-                    default=10240)
+parser.add_argument('--max_tokens', help="LLM_max_tokens", default=10240)
 args = parser.parse_args()
 print(args)
 
@@ -63,7 +61,7 @@ user_task_ids = {'zero'}
 # with open(args.verilog_example_dir + "/problems_part.txt", "r") as f:
 #     user_task_ids = set(
 #         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
-        
+
 case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
                                   task_ids=user_task_ids)
 
@@ -120,6 +118,7 @@ for _ in range(case_manager.total_tasks()):
         cur_task_id=cur_task_id,
         spec=case_manager.get_cur_prompt(),
         golden_test_bench=case_manager.get_cur_task_test(),
+        images=case_manager.get_cur_task_images(),
         plan_filename=plan_filename,
         have_plans=have_plans)
     if success:
