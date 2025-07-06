@@ -36,7 +36,10 @@ parser.add_argument('--verilog_example_dir',
 parser.add_argument('--oai_config',
                     help="OAI_CONFIG_LIST",
                     default="OAI_CONFIG_LIST")
-parser.add_argument('--max_tokens', help="LLM_max_tokens", default=10240)
+parser.add_argument('--max_tokens',
+                    help="LLM_max_tokens",
+                    type=int,
+                    default=10240)
 args = parser.parse_args()
 print(args)
 
