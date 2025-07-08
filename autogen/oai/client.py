@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import weave
 import copy
 import inspect
 import logging
@@ -157,6 +158,7 @@ class OpenAIClient:
                 for choice in choices
             ]
             
+    @weave.op()
     def create(self, params: Dict[str, Any]) -> ChatCompletion:
         """Create a completion for a given config using openai's client.
 
@@ -268,8 +270,6 @@ class OpenAIClient:
             # iostream.print("\033[0m\n")
 
             # Prepare the final ChatCompletion object based on the accumulated data
-            model = chunk.model.replace("gpt-35", "gpt-3.5")  # hack for Azure API
-            prompt_tokens = count_token(params["messages"], model)
             response = ChatCompletion(
                 id=chunk.id,
                 model=chunk.model,
@@ -281,7 +281,7 @@ class OpenAIClient:
             for i in range(len(response_contents)):
                 if OPENAIVERSION >= "1.5":  # pragma: no cover
                     # OpenAI versions 1.5.0 and above
-                    if not finish_reasons[i] :
+                    if finish_reasons[i] not in ['stop', 'length', 'tool_calls', 'content_filter', 'function_call']:
                         finish_reasons[i] = "stop"
                     choice = Choice(
                         index=i,

@@ -129,7 +129,8 @@ class TaskPlanAgent:
                     " You need to make the plan that following the [Rules]!"
                     " You need to follow the modified plans from the plan_verify_assistant! "
                     "You can use the provided sequential_flipflop_latch_identify_tool to identify the signal element with the provided waveform for making plans. "
-                    "Return the subtasks of the created plan in json format!",
+                    "Return the subtasks of the created plan in json format!"
+                    "**You must output ONLY the subtasks of the created plan in PURE JSON format**",
                 }
             },
             {

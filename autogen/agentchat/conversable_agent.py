@@ -1338,8 +1338,7 @@ class ConversableAgent(LLMAgent):
         response = llm_client.create(
             context=messages[-1].pop("context", None),
             messages=all_messages,
-            cache=cache,
-            stream=True
+            cache=cache
         )
         # print('[_generate_oai_reply_from_client] context = ', messages[-1].pop("context", None), "\n messages = ", all_messages)
         extracted_response = llm_client.extract_text_or_completion_object(response)[0]
@@ -1365,6 +1364,35 @@ class ConversableAgent(LLMAgent):
                     tool_call.pop("type")
         # for response in extracted_response:
         #     print('oai message = ', extracted_response[response])
+
+        old_content = []
+        content = ""
+        max_history = 30
+        count = 0
+        true_content = ""
+        if isinstance(extracted_response, dict):
+            content = extracted_response["content"]
+        else:
+            content = extracted_response
+        if content != None and "\n" in content:
+            for i in content.split("\n"):
+                if i in old_content:
+                    count += 1
+                else:
+                    count = 0
+                if count > 28:
+                    break
+                old_content.append(i)
+                true_content += i+"\n"
+                if len(old_content) > max_history:
+                    old_content.pop(0)
+        elif content != "" and content != None:
+            true_content = content
+        if isinstance(extracted_response, dict):
+            extracted_response["content"] = true_content
+        else:
+            extracted_response = true_content
+        
         return extracted_response
 
     async def a_generate_oai_reply(

@@ -9,6 +9,7 @@ from autogen import config_list_from_json
 from hardware_agent.examples.VerilogCoder.verilog_examples_manager import VerilogCaseManager
 import argparse
 import os
+import weave
 """
 example command: python hardware_agent/examples/VerilogCoder/run_verilog_coder.py --generate_plan_dir 
 hardware_agent/examples/VerilogCoder/verilog-eval-v2/plans/ --generate_verilog_dir hardware_agent/examples/VerilogCoder/verilog-eval-v2/plan_output/ 
@@ -39,6 +40,8 @@ parser.add_argument('--oai_config',
 parser.add_argument('--max_tokens',
                     help="LLM_max_tokens",
                     default=10240)
+parser.add_argument('--weave',
+                    help="your weave config list")
 args = parser.parse_args()
 print(args)
 
@@ -56,9 +59,9 @@ user_task_ids = {'zero'}
 # user_task_ids = {'circuit10'}
 # user_task_ids = {'lfsr32'}
 
-# with open(args.verilog_example_dir + "/problems.txt", "r") as f:
-#     user_task_ids = set(
-#         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
+with open(args.verilog_example_dir + "/problems.txt", "r") as f:
+    user_task_ids = set(
+        ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
 
 # with open(args.verilog_example_dir + "/problems_part.txt", "r") as f:
 #     user_task_ids = set(
@@ -84,6 +87,16 @@ llm_configs = {
     "verilog_writing_llm": gpt4_config_list,
     "verilog_debug_llm": gpt4_config_list
 }
+
+#weave
+if args.weave != None:
+    weave_config_list = config_list_from_json(env_or_file=args.weave)
+    client = weave.init(weave_config_list[0]["name"])
+    client.add_cost(
+        llm_id=gpt4_config_list[0]["model"],
+        prompt_token_cost=weave_config_list[0]["prompt_cost"],
+        completion_token_cost=weave_config_list[0]["completion_cost"]
+    )
 
 print("[Info]: VerilogCoder llm configs = ", llm_configs)
 
