@@ -163,9 +163,7 @@ def load_verilog_eval2_cases(file_dir: str,
 
         if content_type.startswith('images-'):
             print('reading image ', file_dir, file)
-            with open(file_dir + "/" + file, "rb") as image_file:
-                data_tbl[task_map[task_id]]['images'].append(
-                    base64.b64encode(image_file.read()).decode('utf-8'))
+            data_tbl[task_map[task_id]]['images'].append(file_dir + "/" + file)
 
         else:
             print('reading ', file_dir, file)

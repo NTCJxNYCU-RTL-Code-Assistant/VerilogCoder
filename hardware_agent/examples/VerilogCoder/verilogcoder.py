@@ -187,14 +187,19 @@ class VerilogCoder:
                              have_plans: bool = False,
                              skip_kg_plan: bool = False,
                              have_completed_code: bool = False):
-        self.verilog_tools.load_test_bench(task_id=cur_task_id, spec=spec,
-                                           test_bench=golden_test_bench, write_file=True)
+        self.verilog_tools.load_test_bench(task_id=cur_task_id,
+                                           spec=spec,
+                                           test_bench=golden_test_bench,
+                                           write_file=True)
+
+        if images and len(images) > 0:
+            spec = spec + ' '.join(f'<img {image_path}>'
+                                   for image_path in images)
 
         if not have_plans:
             # Load plan from JSON file to dictionary
             task_flow_plans = self.make_plans(cur_task_id=cur_task_id,
                                               module=spec,
-                                              images=images,
                                               skip_kg_plan=skip_kg_plan)
         else:
             with open(plan_filename, 'r') as json_file:
@@ -228,7 +233,6 @@ class VerilogCoder:
     def make_plans(self,
                    cur_task_id,
                    module: str,
-                   images: list[str] | None = None,
                    skip_kg_plan: bool = False,
                    show_plan: bool = False):
         """
@@ -236,7 +240,7 @@ class VerilogCoder:
         """
         self.revalidate_agents()
         rough_plan, signal_nodes_extract = self.task_planner_agent.make_plans(
-            module=module, images=images)
+            module=module)
         print('rough_plan = ',
               rough_plan,
               '\n\nentity extraction = ',

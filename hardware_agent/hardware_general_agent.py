@@ -10,7 +10,7 @@ from autogen.cache import Cache
 from autogen.coding import DockerCommandLineCodeExecutor, LocalCommandLineCodeExecutor
 from autogen import GroupChat, GroupChatManager, AssistantAgent, ConversableAgent, UserProxyAgent, config_list_from_json, register_function
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, TypeVar, Union
-from autogen.agentchat.contrib.capabilities import transform_messages, transforms
+from autogen.agentchat.contrib.capabilities import transform_messages, transforms, vision_capability
 from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from autogen.agentchat.contrib.phi_image_agent import PhiVConversableAgent
@@ -122,6 +122,7 @@ class HardwareAgent:
         # Memories
         self.teachable_database = []
         self.transform_messages_handlers = []
+        self.vision_handlers = []
 
         for agent_config in agent_configs:
 
@@ -159,9 +160,18 @@ class HardwareAgent:
                                              agent_name=agent_config['base_agent_config']['name'])
             # long term memory capability
             if 'teachable' in agent_config:
-                self._add_teachability(teachable_config=agent_config['teachable']['args'],
-                                       agent=self.agents[agent_config['base_agent_config']['name']],
-                                       agent_name=agent_config['base_agent_config']['name'])
+                self._add_teachability(
+                    teachable_config=agent_config['teachable']['args'],
+                    agent=self.agents[agent_config['base_agent_config']
+                                      ['name']],
+                    agent_name=agent_config['base_agent_config']['name'])
+            # vision capability
+            if 'llm_config' in agent_config['base_agent_config']:
+                self._add_vision_capability(
+                    lmm_config=agent_config['base_agent_config']['llm_config'],
+                    agent=self.agents[agent_config['base_agent_config']
+                                      ['name']],
+                    agent_name=agent_config['base_agent_config']['name'])
         # end initializing the agent
         self.manager = None
         if self.num_assistant_agent + self.num_proxy_agent + self.num_rag_proxy_agent > 2:
@@ -238,6 +248,22 @@ class HardwareAgent:
                                         'config': teachable_config,
                                         'obj': teachability.Teachability(**teachable_config)})
         self.teachable_database[-1]['obj'].add_to_agent(agent)
+        return
+
+    def _add_vision_capability(self,
+                               lmm_config: Dict,
+                               agent: Union[UserProxyAgent, AssistantAgent,
+                                            RetrieveUserProxyAgent] = None,
+                               agent_name: str = ""):
+        self.vision_handlers.append({
+            'agent':
+            agent_name,
+            'config':
+            lmm_config,
+            'obj':
+            vision_capability.VisionCapability(lmm_config=lmm_config)
+        })
+        self.vision_handlers[-1]['obj'].add_to_agent(agent)
         return
 
     def reset_agents(self):

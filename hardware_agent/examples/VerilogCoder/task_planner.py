@@ -283,9 +283,7 @@ class TaskPlanAgent:
         assert (result is not None)
         return result
 
-    def _create_rough_plans(self,
-                            module: str,
-                            images: list[str] | None = None):
+    def _create_rough_plans(self, module: str):
 
         module_plan_prompt = Verilog_Plan_Template_Prompt.format(
             ModulePrompt=module,
@@ -300,11 +298,11 @@ class TaskPlanAgent:
         # return json.loads(self.json_parser(rough_plan))
         for _ in range(5):
             rough_plan = self.plan_agent.initiate_chat(
-                message=module_plan_prompt, images=images)
+                message=module_plan_prompt)
             try:
                 return json.loads(self.json_parser(rough_plan))
             except json.JSONDecodeError:
-                print("error: ",rough_plan)
+                print("error: ", rough_plan)
                 continue
         raise ValueError("Failed to parse rough plan after 5 attempts.")
 
@@ -316,17 +314,18 @@ class TaskPlanAgent:
         # entities = self.entity_extraction_agent.initiate_chat(message=entity_extract_prompt)
         # return json.loads(self.json_parser(entities))
         for _ in range(5):
-            entities = self.entity_extraction_agent.initiate_chat(message=entity_extract_prompt)
+            entities = self.entity_extraction_agent.initiate_chat(
+                message=entity_extract_prompt)
             try:
                 return json.loads(self.json_parser(entities))
             except json.JSONDecodeError:
                 continue
         raise ValueError("Failed to parse extract entity after 5 attempts.")
-        
-    def make_plans(self, module: str, images: list[str] | None = None):
+
+    def make_plans(self, module: str):
 
         # make the rough plan
-        rough_plan = self._create_rough_plans(module=module, images=images)
+        rough_plan = self._create_rough_plans(module=module)
         if 'subtasks' not in rough_plan.keys():
             raise ValueError("[Error] Plan format error!\n", rough_plan)
         # print('rough plan = ', rough_plan)
@@ -344,7 +343,7 @@ class TaskPlanAgent:
             'state_transitions_description' not in signal_nodes_extract.keys() or \
             'signal_examples' not in signal_nodes_extract.keys():
             raise ValueError("[Error] Entity extraction format error!\n",
-                  signal_nodes_extract)
+                             signal_nodes_extract)
         # print('entity extraction = ', signal_nodes_extract)
         return copy.deepcopy(rough_plan['subtasks']), signal_nodes_extract
 

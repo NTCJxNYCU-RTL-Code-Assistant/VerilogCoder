@@ -53,7 +53,7 @@ else:
 
 # Load verilog problem sets
 # Add questions
-user_task_ids = {'zero'}
+user_task_ids = {'kmap1'}
 # user_task_ids = {'circuit10'}
 # user_task_ids = {'lfsr32'}
 
