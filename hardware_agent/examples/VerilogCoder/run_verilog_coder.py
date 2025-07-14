@@ -55,8 +55,8 @@ else:
 
 # Load verilog problem sets
 # Add questions
-user_task_ids = {'zero'}
-# user_task_ids = {'circuit10'}
+# user_task_ids = {'ece241_2014_q4'}
+# user_task_ids = {'zero'}
 # user_task_ids = {'lfsr32'}
 
 with open(args.verilog_example_dir + "/problems.txt", "r") as f:
@@ -73,7 +73,8 @@ case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
 # llm configurations
 gpt4_config_list = config_list_from_json(env_or_file=args.oai_config)
 
-if gpt4_config_list[0]["model"] != "o3":
+gpt_reasoning_model = ["o3","o4-mini"]
+if gpt4_config_list[0]["model"] not in gpt_reasoning_model:
     gpt4_config_list[0]["max_tokens"] = args.max_tokens
 else:
     gpt4_config_list[0]["max_completion_tokens"] = args.max_tokens

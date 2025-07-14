@@ -1463,6 +1463,8 @@ class ConversableAgent(LLMAgent):
 
             num_code_blocks = len(code_blocks)
             if num_code_blocks == 1:
+                if code_blocks[0].language in ["json","verilog"]:
+                    break
                 iostream.print(
                     colored(
                         f"\n>>>>>>>> EXECUTING CODE BLOCK (inferred language is {code_blocks[0].language})...",
