@@ -18,8 +18,7 @@ from autogen.oai.client import OpenAIWrapper
 DEFAULT_DESCRIPTION_PROMPT = (
     "Write a detailed caption for this image. "
     "Pay special attention to any details that might be useful or relevant "
-    "to the ongoing conversation."
-)
+    "to the ongoing conversation.")
 
 
 class VisionCapability(AgentCapability):
@@ -94,12 +93,16 @@ class VisionCapability(AgentCapability):
         self._parent_agent = agent
 
         # Append extra info to the system message.
-        agent.update_system_message(agent.system_message + "\nYou've been given the ability to interpret images.")
+        agent.update_system_message(
+            agent.system_message +
+            "\nYou've been given the ability to interpret images.")
 
         # Register a hook for processing the last message.
-        agent.register_hook(hookable_method="process_last_received_message", hook=self.process_last_received_message)
+        agent.register_hook(hookable_method="process_last_received_message",
+                            hook=self.process_last_received_message)
 
-    def process_last_received_message(self, content: Union[str, List[dict]]) -> str:
+    def process_last_received_message(self, content: Union[str,
+                                                           List[dict]]) -> str:
         """
         Processes the last received message content by normalizing and augmenting it
         with descriptions of any included images. The function supports input content
@@ -158,7 +161,8 @@ class VisionCapability(AgentCapability):
         # normalize the content into the gpt-4v format for multimodal
         # we want to keep the URL format to keep it concise.
         if isinstance(content, str):
-            content = gpt4v_formatter(content, img_format="url")
+            content = gpt4v_formatter(
+                content, img_format="uri")  # update from url to uri
 
         aug_content: str = ""
         for item in content:
@@ -170,7 +174,8 @@ class VisionCapability(AgentCapability):
                 img_caption = ""
 
                 if self._custom_caption_func:
-                    img_caption = self._custom_caption_func(img_url, get_pil_image(img_url), self._lmm_client)
+                    img_caption = self._custom_caption_func(
+                        img_url, get_pil_image(img_url), self._lmm_client)
                 elif self._lmm_client:
                     img_data = get_image_data(img_url)
                     img_caption = self._get_image_caption(img_data)
@@ -179,7 +184,9 @@ class VisionCapability(AgentCapability):
 
                 aug_content += f"<img {img_url}> in case you can not see, the caption of this image is: {img_caption}\n"
             else:
-                print(f"Warning: the input type should either be `test` or `image_url`. Skip {item['type']} here.")
+                print(
+                    f"Warning: the input type should either be `test` or `image_url`. Skip {item['type']} here."
+                )
 
         return aug_content
 
@@ -192,20 +199,22 @@ class VisionCapability(AgentCapability):
         """
         response = self._lmm_client.create(
             context=None,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": self._description_prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": convert_base64_to_data_uri(img_data),
-                            },
+            messages=[{
+                "role":
+                "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": self._description_prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": convert_base64_to_data_uri(img_data),
                         },
-                    ],
-                }
-            ],
+                    },
+                ],
+            }],
         )
         description = response.choices[0].message.content
         return content_str(description)

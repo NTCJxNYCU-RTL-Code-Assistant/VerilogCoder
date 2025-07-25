@@ -33,6 +33,7 @@ from hardware_agent.examples.VerilogCoder.llm_prompt_manager import get_plan_ret
 from hardware_agent.examples.VerilogCoder.llm_prompt_manager import get_plan_graph_retrieval_agent_config, \
     get_verilog_completion_agent_config, get_verilog_debug_agent_config
 
+
 class VerilogCoder:
 
     def __init__(self,
@@ -42,14 +43,20 @@ class VerilogCoder:
                  verilog_writing_llm_config,
                  debug_llm_config,
                  llm_types: Dict[str, str],
-                 generate_plan_dir: str="./generated_verilog_plans/",
-                 generate_verilog_dir: str="./generated_verilog_code/",
-                 verilog_tmp_dir: str="./verilog_tool_tmp/"):
+                 generate_plan_dir: str = "./generated_verilog_plans/",
+                 generate_verilog_dir: str = "./generated_verilog_code/",
+                 verilog_tmp_dir: str = "./verilog_tool_tmp/"):
 
         # Toolkit initialization
         self.kg_plan_tool = KnowledgeGraphToolKits(
-            llm_config={"config_list": kg_llm_config, "cache_seed": None, "temperature": 0.0, "top_p": 1})
-        self.verilog_tools = VerilogToolKits(workdir=os.getcwd() + "/" + verilog_tmp_dir)
+            llm_config={
+                "config_list": kg_llm_config,
+                "cache_seed": None,
+                "temperature": 0.0,
+                "top_p": 1
+            })
+        self.verilog_tools = VerilogToolKits(workdir=os.getcwd() + "/" +
+                                             verilog_tmp_dir)
 
         # dirs
         self.verilog_tmp_dir = verilog_tmp_dir
@@ -65,8 +72,10 @@ class VerilogCoder:
         plan_gr_agent_config, plan_gr_group_config = get_plan_graph_retrieval_agent_config(
             llm_type=llm_types["graph_retrieval_llm"],
             llm_config=graph_retrieval_llm_config)
-        self.plan_gr_agent = HardwareAgent(agent_configs=plan_gr_agent_config, tool_configs=plan_gr_tool_configs,
-                                              group_chat_kwargs=plan_gr_group_config)
+        self.plan_gr_agent = HardwareAgent(
+            agent_configs=plan_gr_agent_config,
+            tool_configs=plan_gr_tool_configs,
+            group_chat_kwargs=plan_gr_group_config)
 
         # setup code completion agent
         print("[Info]: Initializing verilog code completion agent")
@@ -74,12 +83,12 @@ class VerilogCoder:
         verilog_completion_agent_config, verilog_completion_group_config = get_verilog_completion_agent_config(
             llm_type=llm_types["verilog_writing_llm"],
             llm_config=verilog_writing_llm_config)
-        verilog_completion_agent_config = tool_usage_prompt(verilog_completion_tool_configs,
-                                                            verilog_completion_agent_config)
-        self.verilog_complete_agent = HardwareAgent(agent_configs=verilog_completion_agent_config,
-                                               tool_configs=verilog_completion_tool_configs,
-                                               group_chat_kwargs=verilog_completion_group_config)
-
+        verilog_completion_agent_config = tool_usage_prompt(
+            verilog_completion_tool_configs, verilog_completion_agent_config)
+        self.verilog_complete_agent = HardwareAgent(
+            agent_configs=verilog_completion_agent_config,
+            tool_configs=verilog_completion_tool_configs,
+            group_chat_kwargs=verilog_completion_group_config)
 
         # setup debug agent
         print("[Info]: Initializing debug agent")
@@ -87,62 +96,92 @@ class VerilogCoder:
         code_debug_agent_config, code_debug_group_config = get_verilog_debug_agent_config(
             llm_type=llm_types["verilog_debug_llm"],
             llm_config=debug_llm_config)
-        code_debug_agent_config = tool_usage_prompt(code_debug_tool_configs, code_debug_agent_config)
-        self.code_debug_agent = HardwareAgent(agent_configs=code_debug_agent_config,
-                                         tool_configs=code_debug_tool_configs,
-                                         group_chat_kwargs=code_debug_group_config)
+        code_debug_agent_config = tool_usage_prompt(code_debug_tool_configs,
+                                                    code_debug_agent_config)
+        self.code_debug_agent = HardwareAgent(
+            agent_configs=code_debug_agent_config,
+            tool_configs=code_debug_tool_configs,
+            group_chat_kwargs=code_debug_group_config)
         print("[Info]: Finish initializing agents")
 
     # Default tool: Can be extended further
     def setup_plan_graph_tool(self):
         # Tool function calls
         def retrieve_additional_plan_information_tool(
-                current_plan: Annotated[str, "The plan to query the knowledge graph database."],
-                BFS_retrival_level: Annotated[
-                    int, "The BFS search level in knowledge graph database based on current_plan"]) -> str:
-            return self.kg_plan_tool.networkx_bfs_knowledge_graph_query(query=current_plan,
-                                                                        bfs_level=BFS_retrival_level)
+            current_plan: Annotated[
+                str, "The plan to query the knowledge graph database."],
+            BFS_retrival_level: Annotated[
+                int,
+                "The BFS search level in knowledge graph database based on current_plan"]
+        ) -> str:
+            return self.kg_plan_tool.networkx_bfs_knowledge_graph_query(
+                query=current_plan, bfs_level=BFS_retrival_level)
 
-        plan_gr_tool_configs = [
-            {'function_call': retrieve_additional_plan_information_tool,
-             'executor': "user",
-             'caller': "verilog_engineer",
-             'name': "retrieve_additional_plan_information_tool",
-             'description': '\tUse this tool to retrieve required information about the plan.'
-                            '\n\tInput the current_plan in string format and BFS_retrival_level in integer format. Output is the string of retrieved information.',
-             'tool_examples': ''}
-        ]
+        plan_gr_tool_configs = [{
+            'function_call':
+            retrieve_additional_plan_information_tool,
+            'executor':
+            "user",
+            'caller':
+            "verilog_engineer",
+            'name':
+            "retrieve_additional_plan_information_tool",
+            'description':
+            '\tUse this tool to retrieve required information about the plan.'
+            '\n\tInput the current_plan in string format and BFS_retrival_level in integer format. Output is the string of retrieved information.',
+            'tool_examples':
+            ''
+        }]
         return plan_gr_tool_configs
 
     # Default tool: Can be extended further
     def setup_verilog_completion_tool(self):
-        def verilog_syntax_check_tool(
-                completed_verilog: Annotated[str, "The completed verilog module code implementation"]) -> str:
-            return self.verilog_tools.verilog_syntax_check_tool(completed_verilog=completed_verilog)
 
-        verilog_completion_tool_configs = [
-            {'function_call': verilog_syntax_check_tool,
-             'executor': "user",
-             'caller': "verilog_verification_assistant",
-             'name': "verilog_syntax_check_tool",
-             'description': '\tUse this tool to examine the syntax correctness of completed verilog module.'
-                            '\n\tInput the completed verilog module in string format. Output is the string of pass or failed.',
-             'tool_examples': ''}
-        ]
+        def verilog_syntax_check_tool(
+            completed_verilog: Annotated[
+                str, "The completed verilog module code implementation"]
+        ) -> str:
+            return self.verilog_tools.verilog_syntax_check_tool(
+                completed_verilog=completed_verilog)
+
+        verilog_completion_tool_configs = [{
+            'function_call':
+            verilog_syntax_check_tool,
+            'executor':
+            "user",
+            'caller':
+            "verilog_verification_assistant",
+            'name':
+            "verilog_syntax_check_tool",
+            'description':
+            '\tUse this tool to examine the syntax correctness of completed verilog module.'
+            '\n\tInput the completed verilog module in string format. Output is the string of pass or failed.',
+            'tool_examples':
+            ''
+        }]
         return verilog_completion_tool_configs
 
     # Default tool: Can be extended further
     def setup_debug_tool(self):
-        def verilog_simulation_tool(
-                completed_verilog: Annotated[str, "The completed verilog module code implementation"]) -> str:
-            return self.verilog_tools.verilog_simulation_tool(completed_verilog=completed_verilog)
 
-        def waveform_trace_tool(function_check_output: Annotated[str, "The output string of function "
-                                                                      "check from verilog_simulation_tool."],
-                                trace_level: Annotated[int, "The number of level for wrong signal waveform tracing. "
-                                                            "It should be larger than 1."]) -> str:
-            return self.verilog_tools.waveform_trace_tool(function_check_output=function_check_output,
-                                                     trace_level=trace_level)
+        def verilog_simulation_tool(
+            completed_verilog: Annotated[
+                str, "The completed verilog module code implementation"]
+        ) -> str:
+            return self.verilog_tools.verilog_simulation_tool(
+                completed_verilog=completed_verilog)
+
+        def waveform_trace_tool(
+            function_check_output: Annotated[
+                str, "The output string of function "
+                "check from verilog_simulation_tool."], trace_level: Annotated[
+                    int,
+                    "The number of level for wrong signal waveform tracing. "
+                    "It should be larger than 1."]
+        ) -> str:
+            return self.verilog_tools.waveform_trace_tool(
+                function_check_output=function_check_output,
+                trace_level=trace_level)
 
         # Not used for now
         '''
@@ -151,21 +190,37 @@ class VerilogCoder:
         '''
 
         code_debug_tool_configs = [
-            {'function_call': verilog_simulation_tool,
-             'executor': "user",
-             'caller': "verilog_engineer",
-             'name': "verilog_simulation_tool",
-             'description': '\tUse this tool to examine the syntax and functional correctness of completed verilog module.'
-                            '\n\tInput the completed verilog module in string format. Output is the string of pass or failed.',
-             'tool_examples': ''},
-            {'function_call': waveform_trace_tool,
-             'executor': "user",
-             'caller': "verilog_engineer",
-             'name': "waveform_trace_tool",
-             'description': '\tUse this tool to trace the functional incorrect signal waveforms.'
-                            '\n\tInput the function_check_output with the output response of verilog_simulation_tool and trace_level for control signal level tracing. '
-                            'Output is the string of waveform and generated partial code relevant to the functional incorrect signals and their control signals.',
-             'tool_examples': ''},
+            {
+                'function_call':
+                verilog_simulation_tool,
+                'executor':
+                "user",
+                'caller':
+                "verilog_engineer",
+                'name':
+                "verilog_simulation_tool",
+                'description':
+                '\tUse this tool to examine the syntax and functional correctness of completed verilog module.'
+                '\n\tInput the completed verilog module in string format. Output is the string of pass or failed.',
+                'tool_examples':
+                ''
+            },
+            {
+                'function_call':
+                waveform_trace_tool,
+                'executor':
+                "user",
+                'caller':
+                "verilog_engineer",
+                'name':
+                "waveform_trace_tool",
+                'description':
+                '\tUse this tool to trace the functional incorrect signal waveforms.'
+                '\n\tInput the function_check_output with the output response of verilog_simulation_tool and trace_level for control signal level tracing. '
+                'Output is the string of waveform and generated partial code relevant to the functional incorrect signals and their control signals.',
+                'tool_examples':
+                ''
+            },
         ]
         return code_debug_tool_configs
 
@@ -182,7 +237,6 @@ class VerilogCoder:
                              spec,
                              golden_test_bench,
                              plan_filename: str = "",
-                             images: list[str] | None = None,
                              completed_module: str = "",
                              have_plans: bool = False,
                              skip_kg_plan: bool = False,
@@ -191,10 +245,6 @@ class VerilogCoder:
                                            spec=spec,
                                            test_bench=golden_test_bench,
                                            write_file=True)
-
-        if images and len(images) > 0:
-            spec = spec + ' '.join(f'<img {image_path}>'
-                                   for image_path in images)
 
         if not have_plans:
             # Load plan from JSON file to dictionary
@@ -207,26 +257,35 @@ class VerilogCoder:
 
         # complete the code
         if not have_completed_code:
-            success, module_file, test_file = self.complete_functional_correct_code(cur_task_id=cur_task_id,
-                                                                                    module=spec,
-                                                                                    task_flow_plans=task_flow_plans)
+            success, module_file, test_file = self.complete_functional_correct_code(
+                cur_task_id=cur_task_id,
+                module=spec,
+                task_flow_plans=task_flow_plans)
         else:
             # debug only; should not use this in common
-            success, module_file, test_file = self.debug_completed_module(cur_task_id=cur_task_id,
-                                                                          module=spec,
-                                                                          completed_module=completed_module)
+            success, module_file, test_file = self.debug_completed_module(
+                cur_task_id=cur_task_id,
+                module=spec,
+                completed_module=completed_module)
 
         # Info output
         if success:
-            print("[VerilogCoder Info]: Successfully write functional correct module.")
+            print(
+                "[VerilogCoder Info]: Successfully write functional correct module."
+            )
         else:
-            print("[VerilogCoder Info]: Failed write functional correct module.")
+            print(
+                "[VerilogCoder Info]: Failed write functional correct module.")
         if "FAILED_FILE" in module_file:
-            print("[VerilogCoder Info]: Failed to generate the module file! Please check the task plans!")
+            print(
+                "[VerilogCoder Info]: Failed to generate the module file! Please check the task plans!"
+            )
             return False
 
-        print("Generated module file: ", self.verilog_output_dir + "/" + module_file )
-        print("Generated testbench with module file: ", self.verilog_output_dir + "/" + test_file)
+        print("Generated module file: ",
+              self.verilog_output_dir + "/" + module_file)
+        print("Generated testbench with module file: ",
+              self.verilog_output_dir + "/" + test_file)
         return success
 
     # Make plans for writing the module according to the spec
@@ -255,27 +314,32 @@ class VerilogCoder:
             plan_contents = []
             for plan in rough_plan:
                 plan_contents.append(plan['content'])
-            self.kg_plan_tool.create_knowledge_graph(TEXT=module,
-                                                plans=plan_contents,
-                                                signal_nodes_extract=signal_nodes_extract,
-                                                determined_nodes=True)
+            self.kg_plan_tool.create_knowledge_graph(
+                TEXT=module,
+                plans=plan_contents,
+                signal_nodes_extract=signal_nodes_extract,
+                determined_nodes=True)
 
             for plan in rough_plan:
                 # prompt dependant to the LLM model
-                prompt_params = get_plan_retrieve_prompt(llm_type=self.llm_types["graph_retrieval_llm"])
+                prompt_params = get_plan_retrieve_prompt(
+                    llm_type=self.llm_types["graph_retrieval_llm"])
                 if self.llm_types["graph_retrieval_llm"] == "llama3":
-                    plan_gr_prompt = prompt_params["template"].format(ToolExamples=prompt_params["tool_examples"],
-                                                                      CurrentPlan=plan['content'])
+                    plan_gr_prompt = prompt_params["template"].format(
+                        ToolExamples=prompt_params["tool_examples"],
+                        CurrentPlan=plan['content'])
                 else:
                     # default prompt for gpt
-                    plan_gr_prompt = prompt_params["template"].format(Module=module,
-                                                                      CurrentPlan=plan['content'])
-                plan_gr = self.plan_gr_agent.initiate_chat(message=plan_gr_prompt)
+                    plan_gr_prompt = prompt_params["template"].format(
+                        Module=module, CurrentPlan=plan['content'])
+                plan_gr = self.plan_gr_agent.initiate_chat(
+                    message=plan_gr_prompt)
                 plan['content'] = plan_gr.summary
 
         # Detailed KG retrieval plan
         task_flow_plans = cp.deepcopy(rough_plan)
-        with open(self.plan_output_dir + "/" + cur_task_id + "_plan.json", 'w') as json_file:
+        with open(self.plan_output_dir + "/" + cur_task_id + "_plan.json",
+                  'w') as json_file:
             json.dump(task_flow_plans, json_file)
 
         # show plans
@@ -288,55 +352,75 @@ class VerilogCoder:
         return task_flow_plans
 
     # Write module code and validate
-    def complete_functional_correct_code(self,
-                                         cur_task_id,
-                                         module: str,
-                                         task_flow_plans: List[Dict[str, Any]]):
+    def complete_functional_correct_code(self, cur_task_id, module: str,
+                                         task_flow_plans: List[Dict[str,
+                                                                    Any]]):
 
         for task in task_flow_plans:
             # print("Plan ", task['id'], ":", task["content"])
             # print("Module = ", module)
             task["agent"] = self.verilog_complete_agent
             task["output_parser"] = verilog_output_parse
-            prompt_params = get_verilog_completion_prompt(llm_type=self.llm_types["verilog_writing_llm"])
+            prompt_params = get_verilog_completion_prompt(
+                llm_type=self.llm_types["verilog_writing_llm"])
             if self.llm_types["verilog_writing_llm"] == "llama3":
-                task["prompt_dict"] = {"prompt_template": prompt_params["template"],
-                                       "ModulePrompt": module,
-                                       "PreviousTaskOutput": "",  # automatic fill in the task flow
-                                       "VerilogExamples": GeneralExample,  # Todo: Dynamic ICL examples
-                                       "Task": task["content"] + "\n\n[Referenced SubTask Description]:\n" + task[
-                                           "source"] + "\n\n" + prompt_params["tool_examples"],
-                                       }
+                task["prompt_dict"] = {
+                    "prompt_template":
+                    prompt_params["template"],
+                    "ModulePrompt":
+                    module,
+                    "PreviousTaskOutput":
+                    "",  # automatic fill in the task flow
+                    "VerilogExamples":
+                    GeneralExample,  # Todo: Dynamic ICL examples
+                    "Task":
+                    task["content"] +
+                    "\n\n[Referenced SubTask Description]:\n" +
+                    task["source"] + "\n\n" + prompt_params["tool_examples"],
+                }
             else:
                 # default prompt for gpt models
-                task["prompt_dict"] = {"prompt_template": prompt_params["template"],
-                                       "ModulePrompt": module,
-                                       "PreviousTaskOutput": "",  # automatic fill in the task flow
-                                       "VerilogExamples": GeneralExample,  # Todo: Dynamic ICL examples/ self-learning?
-                                       "Task": task["content"] + "\n\n[Referenced SubTask Description]:\n" + task["source"],
-                                       }
+                task["prompt_dict"] = {
+                    "prompt_template":
+                    prompt_params["template"],
+                    "ModulePrompt":
+                    module,
+                    "PreviousTaskOutput":
+                    "",  # automatic fill in the task flow
+                    "VerilogExamples":
+                    GeneralExample,  # Todo: Dynamic ICL examples/ self-learning?
+                    "Task":
+                    task["content"] +
+                    "\n\n[Referenced SubTask Description]:\n" + task["source"],
+                }
         # Append the waveform debug task in the last
         last_task_id = len(task_flow_plans) + 1
         last_parent_tasks = [str(len(task_flow_plans))]
-        prompt_params = get_verilog_debug_prompt(llm_type=self.llm_types["verilog_debug_llm"])
+        prompt_params = get_verilog_debug_prompt(
+            llm_type=self.llm_types["verilog_debug_llm"])
         if self.llm_types["verilog_writing_llm"] == "llama3":
-            prompt_dict = {'prompt_template': prompt_params["template"],
-                           'ModulePrompt': module + "\n\n" + prompt_params["tool_examples"],
-                           'PreviousTaskOutput': "",  # automatic fill in the task flow
-                           }
+            prompt_dict = {
+                'prompt_template': prompt_params["template"],
+                'ModulePrompt':
+                module + "\n\n" + prompt_params["tool_examples"],
+                'PreviousTaskOutput': "",  # automatic fill in the task flow
+            }
         else:
             # default prompt for gpt models
-            prompt_dict = {'prompt_template': prompt_params["template"],
-                           'ModulePrompt': module,
-                           'PreviousTaskOutput': "",  # automatic fill in the task flow
-                           }
-        task_flow_plans.append({'id': str(last_task_id),
-                                'parent_tasks': last_parent_tasks,
-                                'content': 'Debugging and Fixing the waveform',
-                                'source': "",  # no source content
-                                'agent': self.code_debug_agent,
-                                'output_parser': validate_correct_parse,
-                                'prompt_dict': prompt_dict})
+            prompt_dict = {
+                'prompt_template': prompt_params["template"],
+                'ModulePrompt': module,
+                'PreviousTaskOutput': "",  # automatic fill in the task flow
+            }
+        task_flow_plans.append({
+            'id': str(last_task_id),
+            'parent_tasks': last_parent_tasks,
+            'content': 'Debugging and Fixing the waveform',
+            'source': "",  # no source content
+            'agent': self.code_debug_agent,
+            'output_parser': validate_correct_parse,
+            'prompt_dict': prompt_dict
+        })
         task_manager = BaseTaskFlowManager(task_list=task_flow_plans)
         task_manager.create_DAG_task_graph(display_graph=False)
 
@@ -348,26 +432,28 @@ class VerilogCoder:
         task_completed_results = task_manager.execute_task_flows(pseudo=False)
         print('Final output = ', task_completed_results[-1]["task_output"])
         if task_completed_results[-1]["task_output"] == "Pass":
-            generated_module_file, generated_test_file = self.verilog_tools.write_verilog_file(task_id=cur_task_id,
-                                                                                               output_dir=self.verilog_output_dir)
+            generated_module_file, generated_test_file = self.verilog_tools.write_verilog_file(
+                task_id=cur_task_id, output_dir=self.verilog_output_dir)
             return True, generated_module_file, generated_test_file
         else:
-            generated_module_file, generated_test_file = self.verilog_tools.write_verilog_file(task_id=cur_task_id,
-                                                                                               output_dir=self.verilog_tmp_dir)
+            generated_module_file, generated_test_file = self.verilog_tools.write_verilog_file(
+                task_id=cur_task_id, output_dir=self.verilog_tmp_dir)
             return False, generated_module_file, generated_test_file
 
     # debug completed module only; Not used commonly
-    def debug_completed_module(self, cur_task_id, module: str, completed_module: str):
+    def debug_completed_module(self, cur_task_id, module: str,
+                               completed_module: str):
         self.revalidate_agents()
-        question = Verilog_Subtask_Prompt.format(ModulePrompt=module, PreviousTaskOutput=completed_module)
+        question = Verilog_Subtask_Prompt.format(
+            ModulePrompt=module, PreviousTaskOutput=completed_module)
         response = self.code_debug_agent.initiate_chat(message=question)
         task_completed_results = validate_correct_parse(response)
         print('Final output = ', task_completed_results)
         if task_completed_results[-1]["task_output"] == "Pass":
-            generated_module_file, generated_test_file = self.verilog_tools.write_verilog_file(task_id=cur_task_id,
-                                                                                               output_dir=self.verilog_output_dir)
+            generated_module_file, generated_test_file = self.verilog_tools.write_verilog_file(
+                task_id=cur_task_id, output_dir=self.verilog_output_dir)
             return True, generated_module_file, generated_test_file
         else:
-            generated_module_file, generated_test_file = self.verilog_tools.write_verilog_file(task_id=cur_task_id,
-                                                                                               output_dir=self.verilog_tmp_dir)
+            generated_module_file, generated_test_file = self.verilog_tools.write_verilog_file(
+                task_id=cur_task_id, output_dir=self.verilog_tmp_dir)
             return False, generated_module_file, generated_test_file

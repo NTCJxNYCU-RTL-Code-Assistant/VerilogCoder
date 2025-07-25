@@ -45,12 +45,6 @@ class VerilogCaseManager:
               self.verilog_cases[self.cur_task]['task_id'])
         return self.verilog_cases[self.cur_task]['ref']
 
-    def get_cur_task_images(self):
-        '''
-        return the images of current task
-        '''
-        return self.verilog_cases[self.cur_task]['images']
-
     def get_cur_prompt(self):
         '''
         return the prompt of current case

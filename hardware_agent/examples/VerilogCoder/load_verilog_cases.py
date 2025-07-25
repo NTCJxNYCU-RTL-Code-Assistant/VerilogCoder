@@ -145,9 +145,12 @@ def load_verilog_eval2_cases(file_dir: str,
     task_map = {}
     data_tbl = []
 
-    ## content type: test, ref, prompt, images-xxx
+    ## content type: test, ref, prompt
 
     for file in files:
+        if file.endswith('.png') or file.endswith('.jpg'):
+            continue
+
         file_name_fields = file.split('.')
         problem_fields = file_name_fields[0].split('_')
         task_id = '_'.join(problem_fields[1:-1])
@@ -156,20 +159,15 @@ def load_verilog_eval2_cases(file_dir: str,
             continue
 
         if task_id not in task_map:
-            data_tbl.append({'task_id': task_id, 'images': []})
+            data_tbl.append({'task_id': task_id})
             task_map[task_id] = len(data_tbl) - 1
 
         content_type = problem_fields[-1]
 
-        if content_type.startswith('images-'):
-            print('reading image ', file_dir, file)
-            data_tbl[task_map[task_id]]['images'].append(file_dir + "/" + file)
-
-        else:
-            print('reading ', file_dir, file)
-            with open(file_dir + "/" + file, 'r') as f:
-                text = f.read()
-            data_tbl[task_map[task_id]][content_type] = text
+        print('reading ', file_dir, file)
+        with open(file_dir + "/" + file, 'r') as f:
+            text = f.read()
+        data_tbl[task_map[task_id]][content_type] = text
 
     # combine the ref to test for running iverilog
     for task in data_tbl:
@@ -205,7 +203,7 @@ def check_completed_verilog_case(data_set_file_dir: str,
     completed_files = list_files_in_directory(completed_file_dir)
     if len(files) == 0:
         print("Error! There is no files in for loading verilog cases under ",
-              file_dir)
+              data_set_file_dir)
         exit(1)
     user_task_ids = []
 

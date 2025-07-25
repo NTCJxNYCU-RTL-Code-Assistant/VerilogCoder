@@ -6,7 +6,7 @@
 
 from hardware_agent.examples.VerilogCoder.verilogcoder import VerilogCoder
 from autogen import config_list_from_json
-from hardware_agent.examples.VerilogCoder.verilog_examples_manager import VerilogCaseManager
+from hardware_agent.examples.VerilogCoder.verilog_pdftask_manager import VerilogPDFTaskManager
 import argparse
 import os
 """
@@ -53,7 +53,7 @@ else:
 
 # Load verilog problem sets
 # Add questions
-user_task_ids = {'kmap1'}
+# user_task_ids = {'kmap1'}
 # user_task_ids = {'circuit10'}
 # user_task_ids = {'lfsr32'}
 
@@ -65,8 +65,8 @@ user_task_ids = {'kmap1'}
 #     user_task_ids = set(
 #         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
 
-case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
-                                  task_ids=user_task_ids)
+case_manager = VerilogPDFTaskManager(file_path=args.verilog_example_dir,
+                                     env_or_file=args.oai_config)
 
 # llm configurations
 gpt4_config_list = config_list_from_json(env_or_file=args.oai_config)
@@ -111,17 +111,12 @@ pass_tasks = []
 failed_tasks = []
 for _ in range(case_manager.total_tasks()):
     cur_task_id = case_manager.get_cur_task_id()
-    # if os.path.exists(args.generate_plan_dir + "/" + cur_task_id + "_plan.json"):
-    #    plan_filename = args.generate_plan_dir + "/" + cur_task_id + "_plan.json"
-    #    have_plans = True
-    # else:
     plan_filename = ""
     have_plans = False
     success = coding_agent.write_Verilog_module(
         cur_task_id=cur_task_id,
         spec=case_manager.get_cur_prompt(),
         golden_test_bench=case_manager.get_cur_task_test(),
-        images=case_manager.get_cur_task_images(),
         plan_filename=plan_filename,
         have_plans=have_plans)
     if success:
