@@ -218,8 +218,7 @@ Verilog_Subtask_Template_Prompt = """You are a Verilog RTL designer that only wr
 - Only write the verilog code for the [Current SubTask]. Don't generate code without defined in the [Current SubTask].
 - Don't change or modify the code in [Previous Module Implementation].
 - Return the written verilog log code with Previous Module Implementation. 
-- Declare all ports and signals as logic.
-- Don't use state_t to define the parameter. Use `localparam` or Use 'reg' or 'logic' for signals as registers or Flip-Flops.
+- Don't use state_t to define the parameter. Use `localparam` or Use 'reg' or  for signals as registers or Flip-Flops.
 - Don't generate duplicated signal assignments or blocks.
 - Define the parameters or signals first before using them.
 - Not all the sequential logic need to be reset to 0 when reset is asserted.    
@@ -234,6 +233,7 @@ Verilog_Subtask_Template_Prompt = """You are a Verilog RTL designer that only wr
   [if example end]
 """
 
+#- Declare all ports and signals as logic.
 # Other ICL rules
 #  - for combinational logic with an always block do not explicitly specify
 #    the sensitivity list; instead use always @(*)
@@ -274,20 +274,21 @@ You need to run the verilog_simulation_tool to make sure the functional correctn
 - There is test bench to test the functional correctness. You don't need to generate testbench to test the generated verilog code.
 - Do not use $display or $finish in the module implementation.
 - You can not modify the testbench.
-- Declare all ports as logic; use wire or reg for signals inside the block.
 - Don't use state_t. Use 'reg' or 'logic' for signals as registers or Flip-Flops.
 - for combinational logic, you can use wire assign or always @(*).
 - for combinational logic with an always block do not explicitly specify the sensitivity list; instead use always @(*)
 - Don't generate duplicated signal assignments or blocks.
+- Use synthesizable verilog code to complete and don't use system verilog.
+- Do not use functions or tasks in the module implementation.
 """
 
 CompletedModule="""
 module TopModule (
-    input  logic clk,
-    input  logic reset,
-    input  logic s,
-    input  logic w,
-    output logic z
+    input  wire clk,
+    input  wire reset,
+    input  wire s,
+    input  wire w,
+    output reg z
 );
 
     // State definitions
@@ -296,12 +297,12 @@ module TopModule (
     localparam STATE_Z = 2'b10;
 
     // State register
-    logic [1:0] state;
-    logic [1:0] state_next;
+    reg [1:0] state;
+    reg [1:0] state_next;
 
     // Counter for state B
-    logic [1:0] counter;
-    logic [1:0] count_ones;
+    reg [1:0] counter;
+    reg [1:0] count_ones;
 
     // Sequential logic for state transitions
     always @(posedge clk) begin
@@ -376,15 +377,15 @@ output to zero.
 
 module TopModule
 (
-  input  logic       clk,
-  input  logic       reset,
-  input  logic [7:0] in_,
-  output logic [7:0] out
+  input  wire       clk,
+  input  wire       reset,
+  input  wire [7:0] in_,
+  output reg [7:0] out
 );
 
   // Sequential logic
 
-  logic [7:0] reg_out;
+  reg [7:0] reg_out;
 
   always @( posedge clk ) begin
     if ( reset )
@@ -395,7 +396,7 @@ module TopModule
 
   // Combinational logic
 
-  logic [7:0] temp_wire;
+  reg [7:0] temp_wire;
 
   always @(*) begin
     temp_wire = reg_out + 1;
@@ -431,10 +432,10 @@ finite-state machine to an appropriate initial state.
 
 module TopModule
 (
-  input  logic clk,
-  input  logic reset,
-  input  logic in_,
-  output logic out
+  input  wire clk,
+  input  wire reset,
+  input  wire in_,
+  output reg out
 );
 
   // State enum
@@ -445,8 +446,8 @@ module TopModule
 
   // State register
 
-  logic [1:0] state;
-  logic [1:0] state_next;
+  reg [1:0] state;
+  reg [1:0] state_next;
 
   always @(posedge clk) begin
     if ( reset )
@@ -498,4 +499,5 @@ endmodule
 Do not use typedef enum in the verilog code.
 There is test bench to test the functional correctness. You don't need to generate testbench to test the generated verilog code.
 You can not modify the testbench.
+Use synthesizable verilog code to complete and don't use system verilog.
 """

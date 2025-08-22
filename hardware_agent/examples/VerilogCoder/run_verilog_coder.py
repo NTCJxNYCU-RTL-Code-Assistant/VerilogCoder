@@ -55,13 +55,14 @@ else:
 
 # Load verilog problem sets
 # Add questions
+user_task_ids = {'bubble_sort'}
 # user_task_ids = {'ece241_2014_q4'}
 # user_task_ids = {'zero'}
 # user_task_ids = {'lfsr32'}
 
-with open(args.verilog_example_dir + "/problems.txt", "r") as f:
-    user_task_ids = set(
-        ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
+# with open(args.verilog_example_dir + "/problems.txt", "r") as f:
+#     user_task_ids = set(
+#         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
 
 # with open(args.verilog_example_dir + "/problems_part.txt", "r") as f:
 #     user_task_ids = set(

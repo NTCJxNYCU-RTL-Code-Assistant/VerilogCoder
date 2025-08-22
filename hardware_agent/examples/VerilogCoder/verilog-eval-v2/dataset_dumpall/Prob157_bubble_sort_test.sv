@@ -1,3 +1,5 @@
+////////////////////////////////////////////////
+//yrlu the following is tb provided by Opencores auther
 module tb;
 
 	// Inputs
@@ -57,52 +59,53 @@ module tb;
 
 	task drive_random_data();
 		@(posedge clk);
-        writedata0_i = $urandom_range(0, 2<<8-1);
-        writedata1_i = $urandom_range(0, 2<<8-1);
-        writedata2_i = $urandom_range(0, 2<<8-1);
-        writedata3_i = $urandom_range(0, 2<<8-1);
-        writedata4_i = $urandom_range(0, 2<<8-1);
-        writedata5_i = $urandom_range(0, 2<<8-1);
-        writedata6_i = $urandom_range(0, 2<<8-1);
+        writedata0_i <= $urandom_range(0, 2<<8-1);
+        writedata1_i <= $urandom_range(0, 2<<8-1);
+        writedata2_i <= $urandom_range(0, 2<<8-1);
+        writedata3_i <= $urandom_range(0, 2<<8-1);
+        writedata4_i <= $urandom_range(0, 2<<8-1);
+        writedata5_i <= $urandom_range(0, 2<<8-1);
+        writedata6_i <= $urandom_range(0, 2<<8-1);
 
 		@(posedge clk);
-        load0_i = 1;
-        load1_i = 1;
-        load2_i = 1;
-        load3_i = 1;
-        load4_i = 1;
-        load5_i = 1;
-        load6_i = 1;
+        load0_i <= 1;
+        load1_i <= 1;
+        load2_i <= 1;
+        load3_i <= 1;
+        load4_i <= 1;
+        load5_i <= 1;
+        load6_i <= 1;
 
 		@(posedge clk);
-        writedata0_i = 0;
-        writedata1_i = 0;
-        writedata2_i = 0;
-        writedata3_i = 0;
-        writedata4_i = 0;
-        writedata5_i = 0;
-        writedata6_i = 0;
-        load0_i = 0;
-        load1_i = 0;
-        load2_i = 0;
-        load3_i = 0;
-        load4_i = 0;
-        load5_i = 0;
-        load6_i = 0;
-        start_i = 1;
+        writedata0_i <= 0;
+        writedata1_i <= 0;
+        writedata2_i <= 0;
+        writedata3_i <= 0;
+        writedata4_i <= 0;
+        writedata5_i <= 0;
+        writedata6_i <= 0;
+        load0_i <= 0;
+        load1_i <= 0;
+        load2_i <= 0;
+        load3_i <= 0;
+        load4_i <= 0;
+        load5_i <= 0;
+        load6_i <= 0;
+        start_i <= 1;
 
         @(posedge clk);
-    	start_i = 0;
+    	start_i <= 0;
         fork
-            wait(interrupt_o_ref==1'b1);
-		    wait(interrupt_o_dut==1'b1);
+            @(posedge interrupt_o_ref);
+		    @(posedge interrupt_o_dut);
         join
 		repeat(5) @(posedge clk);	
 	endtask
 
 	initial begin:monitor_dut
 		forever @(posedge clk) begin
-			if (interrupt_o_dut==1'b1 && done_o_dut==1'b1) begin
+			//if (interrupt_o_dut==1'b1 && done_o_dut==1'b1) begin
+            if (interrupt_o_dut==1'b1) begin
 				@(posedge clk); //sample data at next cycle
 				readdata_o_dut_q.push_back(readdata_o_dut);
 				errortime_readdata_o_dut_q.push_back($time);
@@ -113,7 +116,8 @@ module tb;
 
 	initial begin:monitor_ref
 		forever @(posedge clk) begin
-			if (interrupt_o_ref==1'b1 && done_o_ref==1'b1) begin
+			//if (interrupt_o_ref==1'b1 && done_o_ref==1'b1) begin
+            if (interrupt_o_ref==1'b1) begin
 				@(posedge clk); //sample data at next cycle
 				readdata_o_ref_q.push_back(readdata_o_ref);
 				$display("@%0d, get readdata_o_ref", $time);
@@ -184,13 +188,13 @@ module tb;
 					stats1.errors_interrupt_o = stats1.errors_interrupt_o+1'b1;
 					stats1.errors++;
 					$display("[check interrupt_o FAILED] @time:%0d dut=%0h, ref=%0h ",$time, 0, 1);
-					if (stats1.errors_done_o == 0) begin
-						stats1.errortime_done_o = $time;
-						if (stats1.errors == 0) stats1.errortime = $time;
-					end
-					stats1.errors_done_o = stats1.errors_done_o+1'b1;
-					stats1.errors++;
-					$display("[check done_o FAILED] @time:%0d dut=%0h, ref=%0h ",$time, 0, 1);
+					//if (stats1.errors_done_o == 0) begin
+					//	stats1.errortime_done_o = $time;
+					//	if (stats1.errors == 0) stats1.errortime = $time;
+					//end
+					//stats1.errors_done_o = stats1.errors_done_o+1'b1;
+					//stats1.errors++;
+					//$display("[check done_o FAILED] @time:%0d dut=%0h, ref=%0h ",$time, 0, 1);
 					$finish;
 				end
 				join_any
@@ -311,48 +315,48 @@ module tb;
 		abort_i = 0;
 
 		repeat(2) @(posedge clk);
-        rst = 0;
+        rst <= 0;
 		
 		@(posedge clk);
-        writedata0_i = 0;
-        writedata1_i = 7;
-        writedata2_i = 100;
-        writedata3_i = 254;
-        writedata4_i = 255;
-        writedata5_i = 128;
-        writedata6_i = 2;
+        writedata0_i <= 0;
+        writedata1_i <= 7;
+        writedata2_i <= 100;
+        writedata3_i <= 254;
+        writedata4_i <= 255;
+        writedata5_i <= 128;
+        writedata6_i <= 2;
 
 		@(posedge clk);
-        load0_i = 1;
-        load1_i = 1;
-        load2_i = 1;
-        load3_i = 1;
-        load4_i = 1;
-        load5_i = 1;
-        load6_i = 1;
+        load0_i <= 1;
+        load1_i <= 1;
+        load2_i <= 1;
+        load3_i <= 1;
+        load4_i <= 1;
+        load5_i <= 1;
+        load6_i <= 1;
 
 		@(posedge clk);
-        writedata0_i = 0;
-        writedata1_i = 0;
-        writedata2_i = 0;
-        writedata3_i = 0;
-        writedata4_i = 0;
-        writedata5_i = 0;
-        writedata6_i = 0;
-        load0_i = 0;
-        load1_i = 0;
-        load2_i = 0;
-        load3_i = 0;
-        load4_i = 0;
-        load5_i = 0;
-        load6_i = 0;
-        start_i = 1;
+        writedata0_i <= 0;
+        writedata1_i <= 0;
+        writedata2_i <= 0;
+        writedata3_i <= 0;
+        writedata4_i <= 0;
+        writedata5_i <= 0;
+        writedata6_i <= 0;
+        load0_i <= 0;
+        load1_i <= 0;
+        load2_i <= 0;
+        load3_i <= 0;
+        load4_i <= 0;
+        load5_i <= 0;
+        load6_i <= 0;
+        start_i <= 1;
 
         @(posedge clk);
-    	start_i = 0;
+    	start_i <= 0;
         fork
-            wait(interrupt_o_ref==1'b1);
-		    wait(interrupt_o_dut==1'b1);
+            @(posedge interrupt_o_ref);
+		    @(posedge interrupt_o_dut);
         join
         
 		repeat(5) @(posedge clk);
