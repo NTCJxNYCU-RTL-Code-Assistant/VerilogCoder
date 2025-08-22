@@ -75,9 +75,9 @@ gpt4_config_list = config_list_from_json(env_or_file=args.oai_config)
 
 gpt_reasoning_model = ["o3","o4-mini"]
 if gpt4_config_list[0]["model"] not in gpt_reasoning_model:
-    gpt4_config_list[0]["max_tokens"] = args.max_tokens
+    gpt4_config_list[0]["max_tokens"] = int(args.max_tokens)
 else:
-    gpt4_config_list[0]["max_completion_tokens"] = args.max_tokens
+    gpt4_config_list[0]["max_completion_tokens"] = int(args.max_tokens)
     gpt4_config_list[0]["temperature"] = 1
 
 # llama3 settings: Used for comparison

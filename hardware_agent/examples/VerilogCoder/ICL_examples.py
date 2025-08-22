@@ -97,11 +97,11 @@ clock.
 
 module TopModule
 (
-  input  logic       clk,
-  input  logic [3:0] in,
-  output logic [3:0] out
+  input  wire       clk,
+  input  wire [3:0] in,
+  output reg [3:0] out
 );
-  logic [3:0] q;
+  reg [3:0] q;
   initial
     q = 4'b0000;
   
@@ -136,15 +136,15 @@ output to zero.
 
 module TopModule
 (
-  input  logic       clk,
-  input  logic       reset,
-  input  logic [7:0] in,
-  output logic [7:0] out
+  input  wire       clk,
+  input  wire       reset,
+  input  wire [7:0] in,
+  output wire [7:0] out
 );
 
   // Sequential logic
 
-  logic [7:0] reg_out;
+  reg [7:0] reg_out;
 
   always @( posedge clk ) begin
     if ( reset )
@@ -155,7 +155,7 @@ module TopModule
 
   // Combinational logic
 
-  logic [7:0] temp_wire;
+  reg [7:0] temp_wire;
 
   always @(*) begin
     temp_wire = reg_out + 1;
@@ -190,10 +190,10 @@ finite-state machine to an appropriate initial state.
 
 module TopModule
 (
-  input  logic clk,
-  input  logic reset,
-  input  logic in,
-  output logic out
+  input  wire clk,
+  input  wire reset,
+  input  wire in,
+  output reg out
 );
 
   // State enum
@@ -204,8 +204,8 @@ module TopModule
 
   // State register
 
-  logic [1:0] state;
-  logic [1:0] state_next;
+  reg [1:0] state;
+  reg [1:0] state_next;
 
   always @(posedge clk) begin
     if ( reset ) begin

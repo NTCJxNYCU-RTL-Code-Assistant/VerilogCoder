@@ -191,7 +191,8 @@ class VerilogToolKits:
 
         return observation_str + "\n\n" + hint
 
-    # syntax check tool
+
+
     def verilog_syntax_check_tool(self, completed_verilog: Annotated[str, "The completed verilog module code implementation"]) -> str:
         print('running syntax check ', self.workdir)
         # initialize the pathes
@@ -215,72 +216,85 @@ class VerilogToolKits:
             f.write(completed_verilog)
         f.close()
 
-        cmds = (
-                    "iverilog -Wall -Winfloop -Wno-timescale -g2012 -s tb -o " + self.test_vpp_file_path + " " + self.verilog_file_path).split(
-            ' ')
 
-        print(" ".join(cmds))
-        try:
-            outputs = subprocess.check_output(cmds, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            # print('Exception return with error (code {}): {})'.format(e.returncode, e.output))
-            outputs = e.output
+        
+        
+        for current_checking in  ["Verilog", "Lint" ,"SystemVerilog"]:
 
-        outputs = outputs.decode("utf-8").splitlines()
-        print(outputs)
-        # Compile failed
-        if len(outputs) != 0:
-            # compile error parameters
-            error_line_window = 5
-            compiled_error = {}
-            error_msg = ""
+            if current_checking == "Verilog":
+                cmd = ("iverilog -Wall -Winfloop -Wno-timescale -tnull " + self.completed_verilog_file_path).split(' ')
+            elif current_checking == "Lint":
+                cmd = ['python3','/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/hardware_agent/examples/VerilogCoder/linter.py', f'{self.completed_verilog_file_path}']
+            else:
+                cmd = ("iverilog -Wall -Winfloop -Wno-timescale -g2012 -s tb -o " + self.test_vpp_file_path + " " + self.verilog_file_path).split(' ')
+    
+            print(cmd)
+            # print(" ".join(cmd))
+            try:
+                outputs = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                # print('Exception return with error (code {}): {})'.format(e.returncode, e.output))
+                outputs = e.output
 
-            for content in outputs:
-                if not re.search('sv\:[\d+]', content):
-                    error_msg += content + "\n"
-                    continue
-                tmp = content.split(':')
-                m_error_line = int(tmp[1]) - 1
-                # if m_error_line < num_tb_lines:
-                # skip
-                # m_error_line = 0
-                # compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
-                if m_error_line > num_tb_lines:
-                    # m_error_line = m_error_line - num_tb_lines
-                    compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+            outputs = outputs.decode("utf-8").splitlines()
+            print(outputs)
+            if len(outputs) != 0:
+                # compile error parameters
+                error_line_window = 5
+                compiled_error = {}
+                error_msg = ""
+
+                for content in outputs:
+                    if not ( re.search(r'sv:\d+', content) or re.search(r'v:\d+', content)):
+                        error_msg += content + "\n"
+                        continue
+                    tmp = content.split(':')
+                    m_error_line = int(tmp[1]) - 1
+                    # if m_error_line < num_tb_lines:
+                    # skip
+                    # m_error_line = 0
+                    # compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+                    if current_checking == "SystemVerilog" and m_error_line > num_tb_lines :
+                        # m_error_line = m_error_line - num_tb_lines
+                        compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+                    elif current_checking == "Verilog" or current_checking == "Lint":
+                        compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+                    else:
+                        error_msg += content + "\n"
+                print('compiled error = ', compiled_error)
+                # comment the wrong lines
+                # commented_module = completed_verilog.splitlines()
+                if current_checking == "SystemVerilog":
+                    commented_module = verilog_file.splitlines()
                 else:
-                    error_msg += content + "\n"
-            print('compiled error = ', compiled_error)
-            # comment the wrong lines
-            # commented_module = completed_verilog.splitlines()
-            commented_module = verilog_file.splitlines()
-            module_error_msg = ""
-            error_cnt = 0
-            for m_error_line in compiled_error:
-                error_cnt += 1
-                commented_module[m_error_line] = commented_module[m_error_line] + " ## Error line: " + compiled_error[
-                    m_error_line] + " ## "
+                    commented_module = completed_verilog.splitlines()
+                module_error_msg = ""
+                error_cnt = 0
+                for m_error_line in compiled_error:
+                    error_cnt += 1
+                    commented_module[m_error_line] = commented_module[m_error_line] + " ## Error line: " + compiled_error[m_error_line] + " ## "
 
-                # Deal with previous k lines
-                pre_lines = m_error_line - error_line_window
-                if pre_lines < 0:
-                    pre_lines = 0
-                module_error_msg += "## Compiled Error Section " + str(error_cnt) + " Begin ##\n\n"
-                for l in range(pre_lines, m_error_line + 1):
-                    module_error_msg += commented_module[l] + "\n"
-                # module_error_msg += commented_module[m_error_line] + "\n"
-                # Deal with after k lines
-                pre_lines = m_error_line + error_line_window
-                if pre_lines > len(commented_module) - 1:
-                    pre_lines = len(commented_module) - 1
-                for l in range(m_error_line + 1, pre_lines):
-                    module_error_msg += commented_module[l] + "\n"
-                module_error_msg += "\n## Compiled Error Section " + str(error_cnt) + " End ##\n\n"
+                    # Deal with previous k lines
+                    pre_lines = m_error_line - error_line_window
+                    if pre_lines < 0:
+                        pre_lines = 0
+                    module_error_msg += "## Compiled Error Section " + str(error_cnt) + " Begin ##\n\n"
+                    for l in range(pre_lines, m_error_line + 1):
+                        module_error_msg += commented_module[l] + "\n"
+                    # module_error_msg += commented_module[m_error_line] + "\n"
+                    # Deal with after k lines
+                    pre_lines = m_error_line + error_line_window
+                    if pre_lines > len(commented_module) - 1:
+                        pre_lines = len(commented_module) - 1
+                    for l in range(m_error_line + 1, pre_lines):
+                        module_error_msg += commented_module[l] + "\n"
+                    module_error_msg += "\n## Compiled Error Section " + str(error_cnt) + " End ##\n\n"
 
-            # commented_module = '\n'.join(str(x) for x in commented_module)  + "\n\n" +  error_msg
-            module_error_msg += error_msg
-            # print("commented_module = ", commented_module)
-            return "[Compiled Failed Report]\n" + module_error_msg
+                # commented_module = '\n'.join(str(x) for x in commented_module)  + "\n\n" +  error_msg
+                module_error_msg += error_msg
+                # print("commented_module = ", commented_module)
+                return "[Compiled Failed Report]\n" + module_error_msg
+            
 
         return "[Compiled Success Verilog Module]:\n```verilog\n" + self.completed_verilog + "\n```"
 
@@ -309,72 +323,81 @@ class VerilogToolKits:
             f.write(completed_verilog)
         f.close()
 
-        cmds = (
-                    "iverilog -Wall -Winfloop -Wno-timescale -g2012 -s tb -o " + self.test_vpp_file_path + " " + self.verilog_file_path).split(
-            ' ')
+        for current_checking in  ["Verilog", "Lint",  "SystemVerilog"]:
 
-        print(" ".join(cmds))
-        try:
-            outputs = subprocess.check_output(cmds, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            # print('Exception return with error (code {}): {})'.format(e.returncode, e.output))
-            outputs = e.output
+            if current_checking == "Verilog":
+                cmd = ("iverilog -Wall -Winfloop -Wno-timescale -tnull " + self.completed_verilog_file_path).split(' ')
+            elif current_checking == "Lint":
+                cmd = ['python3','/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/hardware_agent/examples/VerilogCoder/linter.py', f'{self.completed_verilog_file_path}']
+            else:
+                cmd = ("iverilog -Wall -Winfloop -Wno-timescale -g2012 -s tb -o " + self.test_vpp_file_path + " " + self.verilog_file_path).split(' ')
 
-        outputs = outputs.decode("utf-8").splitlines()
-        print(outputs)
-        # Compile failed
-        if len(outputs) != 0:
-            # compile error parameters
-            error_line_window = 5
-            compiled_error = {}
-            error_msg = ""
+            print(cmd)
+            # print(" ".join(cmd))
+            try:
+                outputs = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                # print('Exception return with error (code {}): {})'.format(e.returncode, e.output))
+                outputs = e.output
 
-            for content in outputs:
-                if not re.search('sv\:[\d+]', content):
-                    error_msg += content + "\n"
-                    continue
-                tmp = content.split(':')
-                m_error_line = int(tmp[1])
-                # if m_error_line < num_tb_lines:
-                # skip
-                # m_error_line = 0
-                # compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
-                if m_error_line > num_tb_lines:
-                    # m_error_line = m_error_line - num_tb_lines
-                    compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+            outputs = outputs.decode("utf-8").splitlines()
+            print(outputs)
+            if len(outputs) != 0:
+                # compile error parameters
+                error_line_window = 5
+                compiled_error = {}
+                error_msg = ""
+
+                for content in outputs:
+                    if not ( re.search(r'sv:\d+', content) or re.search(r'v:\d+', content)):
+                        error_msg += content + "\n"
+                        continue
+                    tmp = content.split(':')
+                    m_error_line = int(tmp[1]) - 1
+                    # if m_error_line < num_tb_lines:
+                    # skip
+                    # m_error_line = 0
+                    # compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+                    if current_checking == "SystemVerilog" and m_error_line > num_tb_lines :
+                        # m_error_line = m_error_line - num_tb_lines
+                        compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+                    elif current_checking == "Verilog" or current_checking == "Lint":
+                        compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+                    else:
+                        error_msg += content + "\n"
+                print('compiled error = ', compiled_error)
+                # comment the wrong lines
+                # commented_module = completed_verilog.splitlines()
+                if current_checking == "SystemVerilog":
+                    commented_module = verilog_file.splitlines()
                 else:
-                    error_msg += content + "\n"
-            print('compiled error = ', compiled_error)
-            # comment the wrong lines
-            # commented_module = completed_verilog.splitlines()
-            commented_module = verilog_file.splitlines()
-            module_error_msg = ""
-            error_cnt = 0
-            for m_error_line in compiled_error:
-                error_cnt += 1
-                commented_module[m_error_line] = commented_module[m_error_line] + " ## Error line: " + compiled_error[
-                    m_error_line] + " ## "
+                    commented_module = completed_verilog.splitlines()
+                module_error_msg = ""
+                error_cnt = 0
+                for m_error_line in compiled_error:
+                    error_cnt += 1
+                    commented_module[m_error_line] = commented_module[m_error_line] + " ## Error line: " + compiled_error[m_error_line] + " ## "
 
-                # Deal with previous k lines
-                pre_lines = m_error_line - error_line_window
-                if pre_lines < 0:
-                    pre_lines = 0
-                module_error_msg += "## Compiled Error Section " + str(error_cnt) + " Begin ##\n\n"
-                for l in range(pre_lines, m_error_line + 1):
-                    module_error_msg += commented_module[l] + "\n"
-                # module_error_msg += commented_module[m_error_line] + "\n"
-                # Deal with after k lines
-                pre_lines = m_error_line + error_line_window
-                if pre_lines > len(commented_module) - 1:
-                    pre_lines = len(commented_module) - 1
-                for l in range(m_error_line + 1, pre_lines):
-                    module_error_msg += commented_module[l] + "\n"
-                module_error_msg += "\n## Compiled Error Section " + str(error_cnt) + " End ##\n\n"
+                    # Deal with previous k lines
+                    pre_lines = m_error_line - error_line_window
+                    if pre_lines < 0:
+                        pre_lines = 0
+                    module_error_msg += "## Compiled Error Section " + str(error_cnt) + " Begin ##\n\n"
+                    for l in range(pre_lines, m_error_line + 1):
+                        module_error_msg += commented_module[l] + "\n"
+                    # module_error_msg += commented_module[m_error_line] + "\n"
+                    # Deal with after k lines
+                    pre_lines = m_error_line + error_line_window
+                    if pre_lines > len(commented_module) - 1:
+                        pre_lines = len(commented_module) - 1
+                    for l in range(m_error_line + 1, pre_lines):
+                        module_error_msg += commented_module[l] + "\n"
+                    module_error_msg += "\n## Compiled Error Section " + str(error_cnt) + " End ##\n\n"
 
-            # commented_module = '\n'.join(str(x) for x in commented_module)  + "\n\n" +  error_msg
-            module_error_msg += error_msg
-            # print("commented_module = ", commented_module)
-            return "[Compiled Failed Report]\n" + module_error_msg
+                # commented_module = '\n'.join(str(x) for x in commented_module)  + "\n\n" +  error_msg
+                module_error_msg += error_msg
+                # print("commented_module = ", commented_module)
+                return "[Compiled Failed Report]\n" + module_error_msg
 
         # simulation
         if os.path.exists(self.wave_vcd_file_path):
@@ -423,11 +446,16 @@ class VerilogToolKits:
         if not os.path.exists(self.completed_verilog_file_path):
             return "[Error] test.v is not found! Please complete the verilog code and run the verilog_simulation_tool " \
                    "first!"
+        print('running waveform trace tool in ', self.workdir)
         # 1. construct debug tracer
+        # print(self.cur_graph_verilog)
+        # print(self.completed_verilog)
         if self.cur_graph_verilog != self.completed_verilog:
             # if the verilog file are not the same; reconstruct the graph
             print("Creating new AST tree graph...")
+            print(self.completed_verilog_file_path)
             self.graph_tracer = DebugGraph([self.completed_verilog_file_path])
+
 
         print("Get mismatched signal...")
         # 2. get mismatched signal first
@@ -545,15 +573,15 @@ if __name__ == '__main__':
     #                                        sequential_signal_waveform="x x x x x 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 1 0 0 0 0 0"))
     # exit(1)
     # define the tools # Test Prob149
-    verilog_tools = VerilogToolKits()
+    verilog_tools = VerilogToolKits("/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/artifacts_test/verilog_tmp_dir/")
     paths = verilog_tools.get_work_paths()
-    with open("/home/scratch.chiatungh_nvresearch/hardware-agent-marco/verilog_tool_tmp1/dff8.sv", 'r') as f:
+    with open("/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/artifacts_test/verilog_tmp_dir/bubble_sort.sv", 'r') as f:
         test_benchmark = f.read()
     f.close()
     verilog_tools.load_test_bench(task_id="fsm2", spec="", test_bench=test_benchmark)
     # print(verilog_simulation_tool(completed_verilog=completed_verilog_syntax_error))
     # output = verilog_simulation_tool(completed_verilog=completed_verilog_function_error)
-    with open("/home/scratch.chiatungh_nvresearch/hardware-agent-marco/verilog_tool_tmp1/dff8_0.v", 'r') as f:
+    with open("/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/artifacts_test/verilog_tmp_dir/test.v", 'r') as f:
         completed_verilog_code = f.read()
     f.close()
     output = verilog_tools.verilog_simulation_tool(completed_verilog=completed_verilog_code)
