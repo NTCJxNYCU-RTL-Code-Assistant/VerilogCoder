@@ -10,6 +10,7 @@ from hardware_agent.examples.VerilogCoder.verilog_examples_manager import Verilo
 import argparse
 import os
 import weave
+import copy
 """
 example command: python hardware_agent/examples/VerilogCoder/run_verilog_coder.py --generate_plan_dir 
 hardware_agent/examples/VerilogCoder/verilog-eval-v2/plans/ --generate_verilog_dir hardware_agent/examples/VerilogCoder/verilog-eval-v2/plan_output/ 
@@ -39,6 +40,7 @@ parser.add_argument('--oai_config',
                     default="OAI_CONFIG_LIST")
 parser.add_argument('--max_tokens',
                     help="LLM_max_tokens",
+                    type=int,
                     default=10240)
 parser.add_argument('--weave',
                     help="your weave config list")
@@ -58,6 +60,7 @@ else:
 # user_task_ids = {'ece241_2014_q4'}
 # user_task_ids = {'zero'}
 # user_task_ids = {'lfsr32'}
+# user_task_ids = {'bubble_sort'}
 
 with open(args.verilog_example_dir + "/problems.txt", "r") as f:
     user_task_ids = set(
@@ -74,30 +77,61 @@ case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
 gpt4_config_list = config_list_from_json(env_or_file=args.oai_config)
 
 gpt_reasoning_model = ["o3","o4-mini"]
-if gpt4_config_list[0]["model"] not in gpt_reasoning_model:
-    gpt4_config_list[0]["max_tokens"] = args.max_tokens
-else:
-    gpt4_config_list[0]["max_completion_tokens"] = args.max_tokens
-    gpt4_config_list[0]["temperature"] = 1
+if isinstance(gpt4_config_list, list):    
+    if gpt4_config_list[0]["model"] not in gpt_reasoning_model:
+        gpt4_config_list[0]["max_tokens"] = args.max_tokens
+    else:
+        gpt4_config_list[0]["max_completion_tokens"] = args.max_tokens
+        gpt4_config_list[0]["temperature"] = 1
+    task_planner_llm_gpt4_config_list = copy.deepcopy(gpt4_config_list)
+    kg_llm_gpt4_config_list = copy.deepcopy(gpt4_config_list)
+    graph_retrieval_llm_gpt4_config_list = copy.deepcopy(gpt4_config_list)
+    verilog_writing_llm_gpt4_config_list = copy.deepcopy(gpt4_config_list)
+    verilog_debug_llm_gpt4_config_list = copy.deepcopy(gpt4_config_list)
+
+elif isinstance(gpt4_config_list, dict):
+    for name in gpt4_config_list.keys():
+        if gpt4_config_list[name]["model"] not in gpt_reasoning_model:
+            gpt4_config_list[name]["max_tokens"] = args.max_tokens
+        else:
+            gpt4_config_list[name]["max_completion_tokens"] = args.max_tokens
+            gpt4_config_list[name]["temperature"] = 1
+    task_planner_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
+    kg_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
+    graph_retrieval_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
+    verilog_writing_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
+    verilog_debug_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
+    for name in gpt4_config_list.keys():
+        if name == "task_planner":
+            task_planner_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["task_planner"])]
+        elif name == "kg":
+            kg_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["kg"])]
+        elif name == "graph_retrieval":
+            graph_retrieval_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["graph_retrieval"])]
+        elif name == "verilog_writing":
+            verilog_writing_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["verilog_writing"])]
+        elif name == "verilog_debug":
+            verilog_debug_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["verilog_debug"])]
+    
+task_planner_llm_gpt4_config_list[0]["max_completion_tokens"] = 10240
+kg_llm_gpt4_config_list[0]["max_completion_tokens"] = 10241
+graph_retrieval_llm_gpt4_config_list[0]["max_completion_tokens"] = 10242
+verilog_writing_llm_gpt4_config_list[0]["max_completion_tokens"] = 10243
+verilog_debug_llm_gpt4_config_list[0]["max_completion_tokens"] = 10244
 
 # llama3 settings: Used for comparison
 llm_configs = {
-    "task_planner_llm": gpt4_config_list,
-    "kg_llm": gpt4_config_list,
-    "graph_retrieval_llm": gpt4_config_list,
-    "verilog_writing_llm": gpt4_config_list,
-    "verilog_debug_llm": gpt4_config_list
+    "task_planner_llm": task_planner_llm_gpt4_config_list,
+    "kg_llm": kg_llm_gpt4_config_list,
+    "graph_retrieval_llm": graph_retrieval_llm_gpt4_config_list,
+    "verilog_writing_llm": verilog_writing_llm_gpt4_config_list,
+    "verilog_debug_llm": verilog_debug_llm_gpt4_config_list
 }
 
 #weave
 if args.weave != None:
     weave_config_list = config_list_from_json(env_or_file=args.weave)
     client = weave.init(weave_config_list[0]["name"])
-    client.add_cost(
-        llm_id=gpt4_config_list[0]["model"],
-        prompt_token_cost=weave_config_list[0]["prompt_cost"],
-        completion_token_cost=weave_config_list[0]["completion_cost"]
-    )
 
 print("[Info]: VerilogCoder llm configs = ", llm_configs)
 

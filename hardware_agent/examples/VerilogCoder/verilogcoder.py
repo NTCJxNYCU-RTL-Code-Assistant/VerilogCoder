@@ -186,6 +186,7 @@ class VerilogCoder:
         self.verilog_tools.load_test_bench(task_id=cur_task_id, spec=spec,
                                            test_bench=golden_test_bench, write_file=True)
 
+        # task_flow_plans = []
         if not have_plans:
             # Load plan from JSON file to dictionary
             task_flow_plans = self.make_plans(cur_task_id=cur_task_id, module=spec, skip_kg_plan=skip_kg_plan)
@@ -261,7 +262,6 @@ class VerilogCoder:
             for plan in task_flow_plans:
                 print(plan_step, ". ", plan["content"], "\n")
                 plan_step += 1
-
         return task_flow_plans
 
     # Write module code and validate
