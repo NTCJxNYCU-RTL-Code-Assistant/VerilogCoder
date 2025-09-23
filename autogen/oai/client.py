@@ -19,6 +19,7 @@ from autogen.runtime_logging import log_chat_completion, log_new_client, log_new
 from autogen.token_count_utils import count_token
 import re
 import requests
+import json
 
 
 TOOL_ENABLED = False
@@ -315,8 +316,15 @@ class OpenAIClient:
             print(">>>> params[messages]")
             print(params["messages"])
             print("<<<<")
-            response = completions.create(**params)
-
+            # response = completions.create(**params)
+            tries = 5
+            for _ in range(tries):
+                try: 
+                    response = completions.create(**params)
+                    return response
+                except json.JSONDecodeError:
+                    continue
+            raise ValueError("Failed to openai create after 5 attempts.")
         return response
 
     def cost(self, response: Union[ChatCompletion, Completion]) -> float:
