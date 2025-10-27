@@ -266,8 +266,8 @@ module tb;
 
 	
 	final begin
-		if (stats1.errors_readdata_o) $display("Hint: Output '%s' has %0d mismatches. First mismatch occurred at time %0d.", "readdata0_o", stats1.errors_readdata_o, stats1.errortime_readdata_o);
-		else $display("Hint: Output '%s' has no mismatches.", "readdata0_o");
+		if (stats1.errors_readdata_o) $display("Hint: Output '%s' has %0d mismatches. First mismatch occurred at time %0d.", "readdata_o", stats1.errors_readdata_o, stats1.errortime_readdata_o);
+		else $display("Hint: Output '%s' has no mismatches.", "readdata_o");
 		if (stats1.errors_interrupt_o) $display("Hint: Output '%s' has %0d mismatches. First mismatch occurred at time %0d.", "interrupt_o", stats1.errors_interrupt_o, stats1.errortime_interrupt_o);
 		else $display("Hint: Output '%s' has no mismatches.", "interrupt_o");	
 		if (stats1.errors_done_o) $display("Hint: Output '%s' has %0d mismatches. First mismatch occurred at time %0d.", "done_o", stats1.errors_done_o, stats1.errortime_done_o);

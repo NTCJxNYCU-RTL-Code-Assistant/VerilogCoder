@@ -1,43 +1,26 @@
-Implement a Verilog Module named TopModule with listed submodules. The Verilog module implements a configurable bubble sort algorithm designed for sorting an array of data elements. It is structured to support sorting through multiple execution stages, leveraging individual elements known as stages to handle the sorting of data elements.
+The Verilog module named `TopModule` is a parameterized design that implements a bubble sort algorithm in hardware. This module is used to sort an array of numbers based on the input parameters specified. The primary objective is to take a series of numbers, sort them using a bubble sort mechanism, and provide the sorted result as output.
 
-### Key Functional Components:
+### Parameters:
+1. **N_BITS (default 8):** This parameter determines the bit-width of each number to be sorted. It affects how data is handled in terms of size during sorting.
+2. **K_NUMBERS (default 49):** This defines the number of elements in the array that needs sorting. This parameter sets the size of the data array processed by the module.
 
-1. **Parameters and I/O:**
-   - **Parameters:**
-     - `N_BITS`: Specifies the bit-width of each data element.
-     - `K_NUMBERS`: Determines the total number of elements in the array to be sorted.
-     -  The module should be instanced by parameters #(N_BITS, K_NUMBERS)
-   - **Inputs:**
-     - `clk`: Clock signal to synchronize operations.
-     - `rst`: Reset signal for initializing or resetting the sorting process.
-     - `load_i`: Controls the loading of individual input data words into the concatenated array.
-     - `writedata_i`: Holds the concatenated unsorted input data words for processing.
-     - `start_i`: Signals the commencement of the sorting operation.
-     - `abort_i`: Provides a mechanism to stop the sorting process if necessary.
-   - **Outputs:**
-     - `readdata_o`: Outputs the concatenated sorted data from the module.
-     - `done_o`: Indicates when the sorting process has been completed.
-     - `interrupt_o`: Generates an interrupt signal during specific events or conditions.
+### Inputs:
+1. **clk (1 bit):** The clock signal used to synchronize the operations of the module.
+2. **rst (1 bit):** A reset signal, when asserted, initializes the system and clears any ongoing operations, returning the module to a known state.
+3. **load_i [K_NUMBERS-1:0] (K_NUMBERS bits):** This input signal indicates which positions in the array should be loaded with new data for sorting.
+4. **writedata_i [K_NUMBERS * N_BITS-1:0] (K_NUMBERS * N_BITS bits):** The input data array consisting of unsorted numbers. Each number is N_BITS wide.
+5. **start_i (1 bit):** A control signal used to start the sorting process. When asserted, it triggers the beginning of the sorting operation.
+6. **abort_i (1 bit):** This signal, when asserted, halts the sorting operation immediately, allowing for a reset or re-initiation.
 
-2.**Submodules:**
-	stageen
-	rungenerator
-	intgenerator
+### Outputs:
+1. **readdata_o [K_NUMBERS * N_BITS-1:0] (K_NUMBERS * N_BITS bits):** A sorted array output, where each number is formatted to N_BITS.
+2. **done_o (1 bit):** Indicates the completion of the sorting process. It signals that the output data is sorted and ready for use.
+3. **interrupt_o (1 bit):** Designed to notify an external system of certain internal conditions, which can include finishing the sort or other operational statuses.
 
-3. **Sorting Mechanism:**
-   - The module uses a series of interconnected stages (`STAGEN`) to facilitate the sorting operation, where each stage handles the comparison and potential swapping of two data elements.
-   - Each stage, implemented using the `stageen` module, manages the data passing through it by synchronizing and comparing adjacent elements, eventually leading to a sorted output via iterative operations.
+### Functional Components and Mechanisms:
+- **Sorting Loop:** Through a series of shifts and comparisons, the array is sorted.
+- **Data Propagation:** As the data propagates through the chain of processing blocks, comparisons and rearrangements are performed sequentially, with shifting operations taking place at each clock cycle.
+- **State Management:** The various registers keep track of which operations are ongoing and ensure synchronization across clock cycles, with `done_o` and `interrupt_o` signaling specific operational milestones.
 
-4. **Control Logic:**
-   - **Run Generator (`rungenerator`):** Manages the sequence and timing of the sorting operation by controlling a run signal (`run_o`) that dictates when the module should be actively sorting.
-   - **Interrupt Generator (`intgenerator`):** Monitors the progression of the sorting process, manages interrupts, and determines when the operation is complete, transitioning to signal `done_o`.
-
-5. **State Management and Signal Flow:**
-   - Utilizes signals such as `w_run_up`, `w_swap_up`, `w_bit_up`, etc., to control the stages and dataflow, managing both the sorting process and the output of sorted data.
-   - The propagation of these signals ensures that comparisons and swaps are executed at appropriate times based on the bubble sort algorithm's requirements.
-
-6. **Pipeline and Sequential Operation:**
-   - The design incorporates a pipelined approach, allowing for parallel processing of data elements through each stage, effectively harnessing hardware resources to manage sorting across clock cycles.
-   - Each stage works in synchronization with the clock to ensure coherence in sorting operations and achieves the ultimate goal of a completely ordered data array.
-
-In essence, this module is tailored for scenarios requiring a hardware implementation of the bubble sort algorithm, making it suitable for applications where sorting must be done quickly and efficiently in digital systems, such as embedded systems or hardware accelerators. The design supports scalability through parameterization, enabling adjustment based on specific application requirements."
+### Behavioral Summary:
+On reset, all registers and counters are initialized. When `start_i` is asserted, the sorting process begins, processing data in stages. Each clock cycle processes one stage, comparing and potentially swapping elements. This procedure continues until all numbers are sorted, as indicated by `done_o`. If `abort_i` is asserted, current operations halt, and the module returns to the reset state. Throughout operation, `interrupt_o` can notify other systems of ongoing activities or completion, depending on the module configuration and logic implemented in `intgenerator`. The final sorted array is available on `readdata_o` after completion.

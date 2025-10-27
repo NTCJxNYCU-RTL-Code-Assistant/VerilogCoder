@@ -11,6 +11,7 @@ import pandas as pd
 from typing import List
 import subprocess, os
 from hardware_agent.examples.VerilogCoder.debug_graph_analyzer import DebugGraph
+import json
 
 
 class CustomCallback(StreamParserCallbacks):
@@ -117,18 +118,20 @@ def tabular_via_dataframe(vcd_path,
         return string
 
     vcd = VCDVCD(vcd_path)
+    print(vcd.endtime)
     n_row = vcd.endtime + 1
     n_col = len(vcd.signals)
     # fill in the waveform to the np array
-    matrix = np.full((n_row, n_col), np.nan, dtype=float)
+    matrix = np.full((n_row, n_col), np.nan, dtype=object)
     for e, ref in enumerate(vcd.signals):
         symbol = vcd.references_to_ids[ref]
         for ts, signal in vcd.data[symbol].tv:
-            try:
-                matrix[ts, e] = int(signal) if signal.isdigit() else -999
-            except:
-                matrix[ts, e] = -999
-
+             matrix[ts, e] = signal
+            # try:
+            #     matrix[ts, e] = int(signal) if signal.isdigit() else -999
+            # except:
+            #     matrix[ts, e] = -999
+    
     # Deal with the signal names including the module inside.
     # only select the signal with <signal>_ref and <signal>_dut
     transformed_signals = []
@@ -163,7 +166,6 @@ def tabular_via_dataframe(vcd_path,
                                ]).dropna(subset='clk')
     df = df.ffill()
     df = df.loc[:, ~df.columns.duplicated()]
-
     # Mark: get original output mismatch columns to make sure there is difference in the last offset line
     ori_mismatch_columns_dut = [
         i for i in df.columns
@@ -192,6 +194,7 @@ def tabular_via_dataframe(vcd_path,
         i for i in df.columns if any((j in i and ("_dut" in i or "_ref" in i))
                                      for j in mismatch_columns)
     ]
+    
     # print(mismatch_columns_tmp)
     # mismatch_columns = mismatch_columns_tmp
     first_row = df.loc[0:1][mismatch_columns]
@@ -211,8 +214,8 @@ def tabular_via_dataframe(vcd_path,
         df = pd.concat([first_row, tail_rows])[-window_size:]
     else:
         df = pd.concat([first_row, tail_rows])
-    df = df.astype(int).astype(str).map(lambda x: binary_string_to_hex(x)
-                                        if x != -999 else 'x')
+    # df = df.astype(int).astype(str).map(lambda x: binary_string_to_hex(x)
+    #                                     if x != -999 else 'x')
 
     # Mark: Add to modify the offset if needed
     print(ori_mismatch_columns_ref, ori_mismatch_columns_dut,
@@ -266,8 +269,8 @@ def tabular_via_dataframe(vcd_path,
         df = pd.concat([first_row, tail_rows, future_rows])
         if df.shape[0] > window_size + 2:
             df = df[-(window_size + 2):]
-        df = df.astype(int).astype(str).map(lambda x: binary_string_to_hex(x)
-                                            if x != -999 else 'x')
+        # df = df.astype(int).astype(str).map(lambda x: binary_string_to_hex(x)
+        #                                     if x != -999 else 'x')
         df = df.sort_index(axis=1)  # sort the signal
         df.index.names = ['time(ns)']
         waveform += "\n### Mismatched signals time(ns) Trace After the First Mismatch ###\n" + df.to_string(header=True, index=True) + \

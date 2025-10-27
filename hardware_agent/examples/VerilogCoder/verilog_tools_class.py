@@ -13,6 +13,7 @@ from hardware_agent.examples.VerilogCoder.vcd_waveform_analyzer import parse_mis
 from hardware_agent.examples.VerilogCoder.debug_graph_analyzer import DebugGraph
 import sys
 from io import StringIO
+import json
 
 # utilities
 def check_functionality(vvp_output:str):
@@ -224,7 +225,7 @@ class VerilogToolKits:
             if current_checking == "Verilog":
                 cmd = ("iverilog -Wall -Winfloop -Wno-timescale -tnull " + self.completed_verilog_file_path).split(' ')
             elif current_checking == "Lint":
-                cmd = ['python3','/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/hardware_agent/examples/VerilogCoder/linter.py', f'{self.completed_verilog_file_path}']
+                cmd = ['python3','./hardware_agent/examples/VerilogCoder/linter.py', f'{self.completed_verilog_file_path}']
             else:
                 cmd = ("iverilog -Wall -Winfloop -Wno-timescale -g2012 -s tb -o " + self.test_vpp_file_path + " " + self.verilog_file_path).split(' ')
     
@@ -328,7 +329,7 @@ class VerilogToolKits:
             if current_checking == "Verilog":
                 cmd = ("iverilog -Wall -Winfloop -Wno-timescale -tnull " + self.completed_verilog_file_path).split(' ')
             elif current_checking == "Lint":
-                cmd = ['python3','/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/hardware_agent/examples/VerilogCoder/linter.py', f'{self.completed_verilog_file_path}']
+                cmd = ['python3','./hardware_agent/examples/VerilogCoder/linter.py', f'{self.completed_verilog_file_path}']
             else:
                 cmd = ("iverilog -Wall -Winfloop -Wno-timescale -g2012 -s tb -o " + self.test_vpp_file_path + " " + self.verilog_file_path).split(' ')
 
@@ -456,7 +457,12 @@ class VerilogToolKits:
             print(self.completed_verilog_file_path)
             self.graph_tracer = DebugGraph([self.completed_verilog_file_path])
 
-
+        try: 
+            d = json.loads(function_check_output)
+            function_check_output = next(iter(d.values()))
+        except:
+            pass
+        
         print("Get mismatched signal...")
         # 2. get mismatched signal first
         if check_functionality(function_check_output):
@@ -507,7 +513,7 @@ class VerilogToolKits:
                              "the mismatched signal waveform and its traced signals. The clock cycle (clk) is 10ns and toggles every 5ns. \n'-' means unknown during simulation. " \
                              "If the '-' is the reason of mismatched signal, please check the reset and assignment block.\n" + \
                              "[Testbench Input Port Signal to Module]: " + ', '.join(input_ports) + \
-                             "\n[Traced Signals]: " + ', '.join(all_traced_signals) + "\n[Table Waveform in hexadecimal format]\n" + waveform_table_str
+                             "\n[Traced Signals]: " + ', '.join(all_traced_signals) + "\n[Table Waveform in binary format]\n" + waveform_table_str
         # 4: get the corresponding verilog code snippets, Todo: Make it another function
         logic_trace_windows = 6
         full_module = True
@@ -573,15 +579,15 @@ if __name__ == '__main__':
     #                                        sequential_signal_waveform="x x x x x 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 1 0 0 0 0 0"))
     # exit(1)
     # define the tools # Test Prob149
-    verilog_tools = VerilogToolKits("/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/artifacts_test/verilog_tmp_dir/")
+    verilog_tools = VerilogToolKits("/work/u3499368/verilog/VerilogCoder/artifacts_test_sha3/verilog_tmp_dir")
     paths = verilog_tools.get_work_paths()
-    with open("/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/artifacts_test/verilog_tmp_dir/bubble_sort.sv", 'r') as f:
+    with open("/work/u3499368/verilog/VerilogCoder/artifacts_test_sha3/verilog_tmp_dir/sha3.sv", 'r') as f:
         test_benchmark = f.read()
     f.close()
     verilog_tools.load_test_bench(task_id="fsm2", spec="", test_bench=test_benchmark)
     # print(verilog_simulation_tool(completed_verilog=completed_verilog_syntax_error))
     # output = verilog_simulation_tool(completed_verilog=completed_verilog_function_error)
-    with open("/mnt/c/Users/a265589/Desktop/RTLCodegen/VerilogCoder/artifacts_test/verilog_tmp_dir/test.v", 'r') as f:
+    with open("/work/u3499368/verilog/VerilogCoder/artifacts_test_sha3/verilog_tmp_dir/test.v", 'r') as f:
         completed_verilog_code = f.read()
     f.close()
     output = verilog_tools.verilog_simulation_tool(completed_verilog=completed_verilog_code)
