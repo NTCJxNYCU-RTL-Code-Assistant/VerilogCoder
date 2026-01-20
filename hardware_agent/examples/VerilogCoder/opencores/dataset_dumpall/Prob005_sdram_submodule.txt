@@ -1,0 +1,5 @@
+sdrc_bank_ctl_ref
+sdrc_bank_fsm_ref
+sdrc_bs_convert_ref
+sdrc_req_gen_ref
+sdrc_xfr_ctl_ref

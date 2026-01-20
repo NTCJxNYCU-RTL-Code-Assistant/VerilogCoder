@@ -220,7 +220,7 @@ class VerilogToolKits:
 
         
         
-        for current_checking in  ["Verilog", "Lint" ,"SystemVerilog"]:
+        for current_checking in  [ "Lint" ,"SystemVerilog"]:
 
             if current_checking == "Verilog":
                 cmd = ("iverilog -Wall -Winfloop -Wno-timescale -tnull " + self.completed_verilog_file_path).split(' ')
@@ -324,7 +324,7 @@ class VerilogToolKits:
             f.write(completed_verilog)
         f.close()
 
-        for current_checking in  ["Verilog", "Lint",  "SystemVerilog"]:
+        for current_checking in  [ "Lint",  "SystemVerilog"]:
 
             if current_checking == "Verilog":
                 cmd = ("iverilog -Wall -Winfloop -Wno-timescale -tnull " + self.completed_verilog_file_path).split(' ')
@@ -579,15 +579,15 @@ if __name__ == '__main__':
     #                                        sequential_signal_waveform="x x x x x 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 1 0 0 0 0 0"))
     # exit(1)
     # define the tools # Test Prob149
-    verilog_tools = VerilogToolKits("/work/u3499368/verilog/VerilogCoder/artifacts_test_sha3/verilog_tmp_dir")
+    verilog_tools = VerilogToolKits("/mnt/nas/homes/@LH-NAS.LOCAL/61/ray-1000008/verilog/VerilogCoder/artifacts_test_sha3_high_thoughput/verilog_tmp_dir")
     paths = verilog_tools.get_work_paths()
-    with open("/work/u3499368/verilog/VerilogCoder/artifacts_test_sha3/verilog_tmp_dir/sha3.sv", 'r') as f:
+    with open("/mnt/nas/homes/@LH-NAS.LOCAL/61/ray-1000008/verilog/VerilogCoder/hardware_agent/examples/VerilogCoder/opencores/dataset_dumpall/sdram/tb_sdr_ctrl_for_verilogcoder_8bit_core.sv", 'r') as f:
         test_benchmark = f.read()
     f.close()
     verilog_tools.load_test_bench(task_id="fsm2", spec="", test_bench=test_benchmark)
     # print(verilog_simulation_tool(completed_verilog=completed_verilog_syntax_error))
     # output = verilog_simulation_tool(completed_verilog=completed_verilog_function_error)
-    with open("/work/u3499368/verilog/VerilogCoder/artifacts_test_sha3/verilog_tmp_dir/test.v", 'r') as f:
+    with open("/mnt/nas/homes/@LH-NAS.LOCAL/61/ray-1000008/verilog/VerilogCoder/artifacts_test_sha3_high_thoughput/verilog_tmp_dir/test.v", 'r') as f:
         completed_verilog_code = f.read()
     f.close()
     output = verilog_tools.verilog_simulation_tool(completed_verilog=completed_verilog_code)

@@ -268,3 +268,133 @@ user_task_ids = {'zero'} # 可在這邊設定要使用的 testcase
 # 可以在 VerilogCoder/hardware_agent/examples/VerilogCoder/verilog-eval-v2/dataset_dumpall/problems.txt
 # 查看 testcase 有哪些
 ```
+
+## 🚀 擴充功能說明（Extended Features / Custom Modifications）
+
+本專案在原始 VerilogCoder 架構之上，額外實作了以下兩項擴充功能，以提升系統的彈性與可擴展性。
+
+---
+
+### 🔹 功能一：多 Agent 使用不同 LLM 模型（Multi-LLM per Agent）
+
+本功能支援為系統中的**不同 Agent 指派不同的 LLM 模型與 API 設定**，不再限制所有 Agent 共用同一組 LLM。
+
+透過此機制，可以：
+
+* 讓不同角色的 Agent 使用最適合的模型（例如除錯 Agent 使用推理能力較強的模型）
+* 同時測試多種模型組合對整體系統效能的影響
+* 提升多 Agent 協作時的彈性與實驗自由度
+
+---
+
+#### 🧩 支援的 Agent 角色
+
+目前系統支援以下 Agent，皆可獨立指定所使用的 LLM：
+
+* `task_planner`：負責解析任務需求與規劃整體實作流程
+* `kg`：負責知識圖譜（Knowledge Graph）相關推理與輔助決策
+* `graph_retrieval`：負責圖結構與相關資訊檢索
+* `verilog_writing`：負責主要 Verilog RTL 程式碼生成
+* `verilog_debug`：負責錯誤分析、除錯與功能修正
+* `submodule_spec`：負責子模組規格分析與模組拆解設計
+
+---
+
+#### ⚙️ 設定方式（Multi-LLM Configuration）
+
+使用者可在設定檔中指定特定 Agent 使用專屬的 LLM，其餘 Agent 使用預設模型（`other`）。
+
+範例如下：
+
+```json
+// VerilogCoder/OAI_CONFIG_LIST
+{
+    "verilog_debug": {
+        "model": "o3",
+        "base_url": "https://api.openai.com/v1",
+        "api_key": "YOUR_OPENAI_API_KEY"
+    },
+    "other": {
+        "model": "openai/gpt-4o",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key": "YOUR_OPENROUTER_API_KEY"
+    }
+}
+```
+
+說明：
+
+* `verilog_debug`：指定除錯 Agent 使用特定模型（此例為 OpenAI o3）
+* `other`：作為其餘所有 Agent 的預設模型設定
+* 每個 Agent 皆可獨立指定：
+
+  * `model`：模型名稱
+  * `base_url`：API 端點
+  * `api_key`：對應平台的 API 金鑰
+
+---
+
+
+### 🔹 功能二：Submodule 分開實作（Submodule-Level Verilog Generation）
+
+本功能支援 VerilogCoder 將設計拆分為多個子模組（submodules）分別生成，並將生成後的子模組**自動替換原本設計中的對應 submodule**，再透過既有的 top module 與 testbench 進行功能驗證。
+
+此模式適合較大型或結構較複雜的 RTL 任務，可提升生成結果的模組化程度、可讀性與除錯效率，同時保留原始 top-level 設計架構不變。
+
+---
+
+#### ✅ 使用前需準備的 3 種檔案
+
+啟用 submodule 分開實作模式時，使用者需額外提供以下三種檔案：
+
+1. **Refmodule（參考模組 / 介面定義）**
+
+   * 用途：提供原始 top module 的介面定義與模組架構作為生成與驗證依據
+   * 內容通常包含：module 名稱、port 宣告，以及既有 submodule 的 instance 介面
+
+2. **Submodule List（子模組清單）**
+
+   * 用途：指定需要重新生成並替換的 submodule 名稱清單
+   * 系統將依此清單逐一生成對應的子模組實作
+
+3. **Testbench（測試平台）**
+
+   * 用途：用於驗證「原始 top module + 替換後 submodules」組合後的功能正確性
+
+---
+
+#### 📂 檔案放置方式（範例）
+
+三種檔案需放置於同一個測資資料夾中，例如：
+
+```text
+prob001_bubble_sort_ref.sv
+prob001_bubble_sort_submodule.txt
+prob001_bubble_sort_test.sv
+```
+
+---
+
+#### ▶️ 使用方式（啟用 Submodule Mode）
+
+執行 VerilogCoder 時加入參數 `--submodule_mode True` 即可啟用 submodule 分開實作模式，例如：
+
+```bash
+python ./hardware_agent/examples/VerilogCoder/run_verilog_coder.py \
+    --generate_plan_dir ./artifacts_test/plans/ \
+    --generate_verilog_dir ./artifacts_test/generate_verilog/ \
+    --verilog_tmp_dir ./artifacts_test/verilog_tmp_dir/ \
+    --verilog_example_dir ./hardware_agent/examples/VerilogCoder/opencores/dataset_dumpall/ \
+    --oai_config OAI_CONFIG_LIST \
+    --submodule_mode True \
+    > ./artifacts_test/log
+```
+
+執行流程說明：
+
+1. 系統依據 `submodule_list` 逐一生成各子模組的 Verilog 實作
+2. 生成完成後，**自動以新生成的 submodule 檔案替換原始設計中的對應 submodule**
+3. 保留原本的 top module 架構不變
+4. 使用提供的 testbench 進行自動編譯與模擬驗證，以確認替換後系統功能是否正確
+
+

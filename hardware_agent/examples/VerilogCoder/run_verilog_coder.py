@@ -7,10 +7,14 @@
 from hardware_agent.examples.VerilogCoder.verilogcoder import VerilogCoder
 from autogen import config_list_from_json
 from hardware_agent.examples.VerilogCoder.verilog_examples_manager import VerilogCaseManager
+from hardware_agent.examples.VerilogCoder.load_verilog_cases import load_verilog_eval2_cases
+from hardware_agent.examples.VerilogCoder.auto_gen_submodule import gen_submodule_spec
 import argparse
 import os
 import weave
 import copy
+import shutil
+from pathlib import Path
 """
 example command: python hardware_agent/examples/VerilogCoder/run_verilog_coder.py --generate_plan_dir 
 hardware_agent/examples/VerilogCoder/verilog-eval-v2/plans/ --generate_verilog_dir hardware_agent/examples/VerilogCoder/verilog-eval-v2/plan_output/ 
@@ -43,6 +47,10 @@ parser.add_argument('--max_tokens',
                     default=10240)
 parser.add_argument('--weave',
                     help="your weave config list")
+parser.add_argument('--submodule_mode',
+                    help="whether use submodule_mode",
+                    type=bool,
+                    default=False)
 args = parser.parse_args()
 print(args)
 
@@ -53,25 +61,6 @@ if not os.path.exists(tmp_dir):
     print(f"Created directory: {tmp_dir}")
 else:
     print(f"Directory already exists: {tmp_dir}")
-
-# Load verilog problem sets
-# Add questions
-# user_task_ids = {'bubble_sort'}
-user_task_ids = {'sha3'}
-# user_task_ids = {'ece241_2014_q4'}
-# user_task_ids = {'zero'}
-# user_task_ids = {'lfsr32'}
-
-# with open(args.verilog_example_dir + "/problems.txt", "r") as f:
-#     user_task_ids = set(
-#         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
-
-# with open(args.verilog_example_dir + "/problems_part.txt", "r") as f:
-#     user_task_ids = set(
-#         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
-        
-case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
-                                  task_ids=user_task_ids)
 
 # llm configurations
 gpt4_config_list = config_list_from_json(env_or_file=args.oai_config)
@@ -88,6 +77,7 @@ if isinstance(gpt4_config_list, list):
     graph_retrieval_llm_gpt4_config_list = copy.deepcopy(gpt4_config_list)
     verilog_writing_llm_gpt4_config_list = copy.deepcopy(gpt4_config_list)
     verilog_debug_llm_gpt4_config_list = copy.deepcopy(gpt4_config_list)
+    submodule_spec_gpt4_config_list = copy.deepcopy(gpt4_config_list)
 
 elif isinstance(gpt4_config_list, dict):
     for name in gpt4_config_list.keys():
@@ -101,6 +91,7 @@ elif isinstance(gpt4_config_list, dict):
     graph_retrieval_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
     verilog_writing_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
     verilog_debug_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
+    submodule_spec_gpt4_config_list = [copy.deepcopy(gpt4_config_list["other"])]
     for name in gpt4_config_list.keys():
         if name == "task_planner":
             task_planner_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["task_planner"])]
@@ -112,6 +103,9 @@ elif isinstance(gpt4_config_list, dict):
             verilog_writing_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["verilog_writing"])]
         elif name == "verilog_debug":
             verilog_debug_llm_gpt4_config_list = [copy.deepcopy(gpt4_config_list["verilog_debug"])]
+        elif name == "submodule_spec":
+            submodule_spec_gpt4_config_list = [copy.deepcopy(gpt4_config_list["submodule_spec"])]
+
     
 task_planner_llm_gpt4_config_list[0]["max_completion_tokens"] = 10240
 kg_llm_gpt4_config_list[0]["max_completion_tokens"] = 10241
@@ -133,6 +127,40 @@ if args.weave != None:
     client = weave.init(weave_config_list[0]["name"])
 
 print("[Info]: VerilogCoder llm configs = ", llm_configs)
+
+# Load verilog problem sets
+# Add questions
+# user_task_ids = {'sha3'}
+# user_task_ids = {'bubble_sort'}
+user_task_ids = {'sdram'}
+# user_task_ids = {'ece241_2014_q4'}
+# user_task_ids = {'zero'}
+# user_task_ids = {"sha3_high_thoughput"}
+
+# with open(args.verilog_example_dir + "/problems.txt", "r") as f:
+#     user_task_ids = set(
+#         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
+
+# with open(args.verilog_example_dir + "/problems_part.txt", "r") as f:
+#     user_task_ids = set(
+#         ['_'.join(line.strip().split('_')[1:]) for line in f.readlines()])
+
+if args.submodule_mode == True:
+    task_cases = load_verilog_eval2_cases(args.verilog_example_dir, user_task_ids)
+
+    user_task_ids = set()
+    folder = Path(os.path.join(args.verilog_example_dir, "tmp"))
+    if folder.exists() and folder.is_dir():
+        shutil.rmtree(folder)
+
+    for task_case in task_cases:
+        user_task_ids.update(gen_submodule_spec(task_case, args.verilog_example_dir, submodule_spec_gpt4_config_list))
+    args.verilog_example_dir = os.path.join(args.verilog_example_dir, "tmp")
+
+# exit()
+        
+case_manager = VerilogCaseManager(file_path=args.verilog_example_dir,
+                                  task_ids=user_task_ids)
 
 llm_types = {}
 for key in llm_configs.keys():
@@ -179,3 +207,9 @@ for _ in range(case_manager.total_tasks()):
 print('passed tasks: ', len(pass_tasks), '\n', pass_tasks, '\n')
 print('failed tasks: ', len(failed_tasks), '\n', failed_tasks, '\n')
 print('success rate: ', len(pass_tasks) / case_manager.total_tasks())
+
+print(args.verilog_example_dir)
+# if args.submodule_mode == True:
+#     folder = Path(args.verilog_example_dir)
+#     if folder.exists() and folder.is_dir():
+#         shutil.rmtree(folder)
