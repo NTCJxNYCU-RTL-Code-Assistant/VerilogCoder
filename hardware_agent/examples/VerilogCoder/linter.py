@@ -4,16 +4,6 @@ SUFFIX = {".v"}
 KW = re.compile(r'(^|[^A-Za-z0-9_$])(function|task)\b')
 END = re.compile(r'\bend(function|task)\b')
 
-def files_from_args(args):
-    if not args: args = ["."]
-    out = []
-    for a in args:
-        p = pathlib.Path(a)
-        if p.is_file() and p.suffix in SUFFIX:
-            out.append(p)
-        elif p.is_dir():
-            out += [q for q in p.rglob("*") if q.is_file() and q.suffix in SUFFIX]
-    return sorted(set(out))
 
 def strip_block_comments(lines):
     res, in_block = [], False
@@ -32,30 +22,26 @@ def strip_block_comments(lines):
                 in_block = False
                 res.append(s.split("*/",1)[1])
             else:
-                res.append("")  # 保留行號
+                res.append("")  
     return res
 
-def main():
-    files = files_from_args(sys.argv[1:])
-    if not files:
-        print("no RTL files", file=sys.stderr); sys.exit(2)
+def lint(file_path):
+    lint_output = []
+    if not file_path:
+        return["Error:no RTL files"];
+    p = pathlib.Path(file_path)
+    try:
+        lines = p.read_text(encoding="utf-8", errors="ignore").splitlines()
+    except Exception as e:
+        return [f"Error: could not read file {file_path}: {e}"]
+      
+    lines = strip_block_comments(lines)
 
-    errs = 0
-    for f in files:
-        try:
-            lines = f.read_text(encoding="utf-8", errors="ignore").splitlines()
-        except Exception:
-            continue
-        lines = strip_block_comments(lines)
-        for i, raw in enumerate(lines, 1):
-            line = raw.split("//",1)[0]  # 去單行註解
-            if not line.strip(): continue
-            if END.search(line): continue
-            if KW.search(line):
-                errs += 1
-                print(f"{f}:{i}: forbidden declaration 'function/task'")
+    for i, raw in enumerate(lines, 1):
+        line = raw.split("//",1)[0]  
+        if not line.strip(): continue
+        if END.search(line): continue
+        if KW.search(line):
+            lint_output.append(f"{file_path}:{i}: forbidden declaration 'function/task'")
+    return lint_output
 
-    if errs: sys.exit(1)
-
-if __name__ == "__main__":
-    main()

@@ -1,0 +1,150 @@
+Module name: round_dut
+Classification: Purely combinational
+
+1. Module Overview
+This module implements a completely combinational, 1600-bit, one-round permutation that is structurally divided into the five classical sub-steps called “theta”, “rho”, “pi”, “chi”, and “iota” (the names are present in the comments and in the internal signal labels).  
+Functionally it realises the following mapping:
+
+out = ι( χ( π( ρ( θ( in ) ) ), round_const )
+
+where ι, χ, π, ρ, θ are the operations defined verbatim below.  
+The RTL contains no clock, no reset, and no storage elements; therefore the result appears after a pure combinational propagation delay once the inputs are stable.  
+The role of the module inside a larger system is unspecified by the RTL.
+
+2. Parameters
+This module has no parameters.
+
+3. Ports (exact declaration order)  
+• input  [1599:0] in  
+  – 1600-bit, level-sensitive data word that is to be permuted.  
+
+• input  [63:0]   round_const  
+  – 64-bit, level-sensitive round constant used solely by the iota step. Only the bits
+    0, 1, 3, 7, 15, 31, 63 of this vector are consulted; all other bits are ignored.  
+
+• output [1599:0] out  
+  – 1600-bit combinational result. Its value is a deterministic function of the
+    current ‘in’ and ‘round_const’ inputs and changes whenever either input changes,
+    after the inherent gate-level propagation delay.
+
+4. Behavioural Specification (pure data-flow)
+
+Internal notation  
+• All arithmetic on x or y coordinates is performed modulo 5.  
+• rot(x,n) = 64-bit left rotation of x by n positions (i.e. bit i of the result
+  equals bit (i−n)mod64 of x).  
+• Lane index formula  
+  lane_idx(x,y) = 5·y + x  
+  base(x,y)     = 64·lane_idx(x,y)           // least-significant bit number  
+  A[x][y]       = in [ base(x,y)+63 : base(x,y) ]   (64 bits)  
+
+Step-by-step algorithm
+
+Step 0 – Input unpacking  
+For every (x,y) ∈ {0..4}²  
+ A[x][y] = in [ base(x,y)+63 : base(x,y) ]    (64-bit slice).
+
+Step 1 – theta  
+Column parities:  
+ B[x] = A[x][0] ⊕ A[x][1] ⊕ A[x][2] ⊕ A[x][3] ⊕ A[x][4]
+
+Lane update:  
+ C[x][y] = A[x][y] ⊕ B[x−1] ⊕ rot(B[x+1],1)
+
+Step 2 – rho  
+D[x][y] = rot( C[x][y], ρ_off(x,y) )  
+with the constant rotation offsets
+
+ ρ_off(x,y) (decimal):  
+ (0,0)=0   (1,0)=1   (2,0)=62  (3,0)=28  (4,0)=27  
+ (0,1)=36  (1,1)=44  (2,1)=6   (3,1)=55  (4,1)=20  
+ (0,2)=3   (1,2)=10  (2,2)=43  (3,2)=25  (4,2)=39  
+ (0,3)=41  (1,3)=45  (2,3)=15  (3,3)=21  (4,3)=8  
+ (0,4)=18  (1,4)=2   (2,4)=61  (3,4)=56  (4,4)=14
+
+Step 3 – pi  
+E[0][0]=D[0][0]   E[0][1]=D[3][0]   E[0][2]=D[1][0]   E[0][3]=D[4][0]   E[0][4]=D[2][0]  
+E[1][0]=D[1][1]   E[1][1]=D[4][1]   E[1][2]=D[2][1]   E[1][3]=D[0][1]   E[1][4]=D[3][1]  
+E[2][0]=D[2][2]   E[2][1]=D[0][2]   E[2][2]=D[3][2]   E[2][3]=D[1][2]   E[2][4]=D[4][2]  
+E[3][0]=D[3][3]   E[3][1]=D[1][3]   E[3][2]=D[4][3]   E[3][3]=D[2][3]   E[3][4]=D[0][3]  
+E[4][0]=D[4][4]   E[4][1]=D[2][4]   E[4][2]=D[0][4]   E[4][3]=D[3][4]   E[4][4]=D[1][4]
+
+Step 4 – chi  
+For every (x,y):  
+ F[x][y] = E[x][y] ⊕ ( ¬E[x+1][y]  ∧  E[x+2][y] )
+
+Step 5 – iota  
+G[0][0] is F[0][0] with selective bit-wise XOR of the round constant:  
+ for k ∈ {0,1,3,7,15,31,63}:   bit k of G[0][0] = bit k of F[0][0] ⊕ round_const[k]  
+ all other bits of lane (0,0) are unchanged.  
+For every other (x,y) ≠ (0,0):  
+ G[x][y] = F[x][y]
+
+Step 6 – Output packing  
+For every (x,y):  
+ out [ base(x,y)+63 : base(x,y) ] = G[x][y]
+
+No other logic exists.
+
+5. Timing and Update Semantics
+• There is no clock and no reset.  
+• All outputs are continuous combinational functions of the current inputs.  
+• Whenever any bit of ‘in’ or ‘round_const’ changes at time t, every bit of ‘out’
+  settles to its new value after the module’s combinational propagation delay.
+
+6. Internal Logic Discussion
+Only simple bit-wise operators (XOR, AND, NOT) and fixed 64-bit rotations are used.
+All modulo-5 coordinate arithmetic is performed implicitly through the ‘add_1’,
+‘add_2’, and ‘sub_1’ macros as:
+
+ add_1(x) = (x+1) mod 5  
+ add_2(x) = (x+2) mod 5  
+ sub_1(x) = (x+4) mod 5
+
+Rotations are implemented with the helper macros  
+ rot_up(word,n)  ≡  rot(word,n)  
+ rot_up_1(word)  ≡  rot(word,1)
+
+A re-implementation must guarantee that the rotation direction and exact offsets
+match the table given in Step 2.
+
+A. State / Mode Summary
+This module is stateless and has no operational modes.
+
+B. Timing / Propagation Example
+Suppose bit 0 of input ‘in’ toggles at simulation time t0.  
+Because the module is purely combinational, certain internal XOR and rotation
+results will change immediately, and eventually every affected bit of ‘out’ will
+reflect the new steady-state value at time t0 + Δ, where Δ is the total
+propagation delay through the longest combinational path. No discrete sampling
+events occur.
+
+C. Complete Behavioural Walk-through
+1. The 1600-bit input word is sliced into 25 contiguous 64-bit lanes according to
+   base(x,y)=64·(5·y+x).  
+2. Column parities are formed (theta), and each lane is updated with two rotated
+   parity words.  
+3. Each lane is then individually rotated by its fixed ρ offset (rho).  
+4. Lanes are rearranged according to the static π permutation (pi).  
+5. For every row of five lanes, the χ non-linear step updates each lane with a
+   function of its two neighbours (chi).  
+6. Finally, seven selected bits of lane (0,0) are XORed with the corresponding
+   bits of ‘round_const’ (iota); all other lanes are left untouched.  
+7. The 25 transformed lanes are re-concatenated, least-significant lane first,
+   producing the 1600-bit ‘out’ vector.
+
+Because no storage elements exist, the above sequence is conceptual; in actual
+hardware all equations are evaluated in parallel, and only the final ‘out’
+vector is externally visible.
+
+ ### The following code is incomplete. Please only complete the missing parts and do not modify the existing implementation. 
+
+module round_dut(in, round_const, out);
+input  [1599:0] in;
+input  [63:0]   round_const;
+output [1599:0] out;
+wire   [63:0]   a[4:0][4:0];
+wire   [63:0]   b[4:0];
+wire   [63:0]   c[4:0][4:0], d[4:0][4:0], e[4:0][4:0], f[4:0][4:0], g[4:0][4:0];
+genvar x, y;
+endmodule

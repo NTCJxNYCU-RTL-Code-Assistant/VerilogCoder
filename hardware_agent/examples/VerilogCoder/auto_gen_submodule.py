@@ -150,11 +150,18 @@ def create_refmodule(folder_path, prob_idx, RefModule, submodule):
     submodule_name = submodule.replace("_ref", "_dut")
     dut_text = RefModule.replace("_ref", "_dut").replace("RefModule", "TopModule")
     dut, rest = split_module_and_rest(dut_text, submodule_name)
+    top, _ = split_module_and_rest(dut_text, "TopModule")
 
     filename = f"prob{prob_idx:03d}_{submodule}.sv"
     path = os.path.join(folder_path, filename)
     path = Path(path)
     path.write_text(rest+"\n"+RefModule, encoding="utf-8")
+    
+    submodule_name = submodule.replace("_ref", "")
+    filename = f"prob{prob_idx:03d}_{submodule_name}_top.sv"
+    path = os.path.join(folder_path, filename)
+    path = Path(path)
+    path.write_text(top, encoding="utf-8")
 
     return dut
 
@@ -551,14 +558,16 @@ def gen_submodule_spec(task_case, path, llm_configs):
             temp_idx = max_prob_index(temp_path)+1
             p = file_is_exist(folder_path, taskname)
 
-            prompt_src = p.with_name(p.name.replace("_test.sv", "_prompt.txt").replace("_ref.sv", "_prompt.txt"))
-            test_src   = p.with_name(p.name.replace("_prompt.txt", "_test.sv").replace("_ref.sv", "_test.sv"))
-            ref_src    = p.with_name(p.name.replace("_prompt.txt", "_ref.sv").replace("_test.sv", "_ref.sv"))
+            prompt_src = p.with_name(p.name.replace("_test.sv", "_prompt.txt").replace("_ref.sv", "_prompt.txt").replace("_top.sv", "_prompt.txt"))
+            test_src   = p.with_name(p.name.replace("_prompt.txt", "_test.sv").replace("_ref.sv", "_test.sv").replace("_top.sv", "_test.sv"))
+            ref_src    = p.with_name(p.name.replace("_prompt.txt", "_ref.sv").replace("_test.sv", "_ref.sv").replace("_top.sv", "_ref.sv"))
+            top_src    = p.with_name(p.name.replace("_prompt.txt", "_top.sv").replace("_test.sv", "_top.sv").replace("_ref.sv", "_top.sv"))
 
             copy_file_to_dir(prompt_src, temp_path, temp_idx)
             copy_file_to_dir(test_src,   temp_path, temp_idx)
             copy_file_to_dir(ref_src,    temp_path, temp_idx)
-            task_set.add(str(p.name.split("_",1)[1]).replace("_test.sv", "").replace("_ref.sv", "").replace("_ref.sv", ""))
+            copy_file_to_dir(top_src,    temp_path, temp_idx)
+            task_set.add(str(p.name.split("_",1)[1]).replace("_test.sv", "").replace("_ref.sv", "").replace("_ref.sv", "").replace("_top.sv", ""))
             continue
         print("generate ",taskname)
         idx = max_prob_index(folder_path)+1
@@ -569,12 +578,13 @@ def gen_submodule_spec(task_case, path, llm_configs):
         temp_idx = max_prob_index(temp_path)+1
         p = file_is_exist(folder_path, taskname)
 
-        prompt_src = p.with_name(p.name.replace("_test.sv", "_prompt.txt").replace("_ref.sv", "_prompt.txt"))
-        test_src   = p.with_name(p.name.replace("_prompt.txt", "_test.sv").replace("_ref.sv", "_test.sv"))
-        ref_src    = p.with_name(p.name.replace("_prompt.txt", "_ref.sv").replace("_test.sv", "_ref.sv"))
-
+        prompt_src = p.with_name(p.name.replace("_test.sv", "_prompt.txt").replace("_ref.sv", "_prompt.txt").replace("_top.sv", "_prompt.txt"))
+        test_src   = p.with_name(p.name.replace("_prompt.txt", "_test.sv").replace("_ref.sv", "_test.sv").replace("_top.sv", "_test.sv"))
+        ref_src    = p.with_name(p.name.replace("_prompt.txt", "_ref.sv").replace("_test.sv", "_ref.sv").replace("_top.sv", "_ref.sv"))
+        top_src    = p.with_name(p.name.replace("_prompt.txt", "_top.sv").replace("_test.sv", "_top.sv").replace("_ref.sv", "_top.sv"))
         copy_file_to_dir(prompt_src, temp_path, temp_idx)
         copy_file_to_dir(test_src,   temp_path, temp_idx)
         copy_file_to_dir(ref_src,    temp_path, temp_idx)
-        task_set.add(str(p.name.split("_",1)[1]).replace("_test.sv", "").replace("_ref.sv", "").replace("_ref.sv", ""))
+        copy_file_to_dir(top_src,    temp_path, temp_idx)
+        task_set.add(str(p.name.split("_",1)[1]).replace("_test.sv", "").replace("_ref.sv", "").replace("_ref.sv", "").replace("_top.sv", ""))
     return task_set

@@ -1,0 +1,218 @@
+Module name: f_permutation_dut  
+Classification: Sequential (clocked)
+
+────────────────────────────────────────────────────────────────────────────
+1.  Module Overview
+────────────────────────────────────────────────────────────────────────────
+Purpose
+• The module maintains a 1600-bit internal state and, on demand, executes
+  exactly 24 permutation rounds (one round per clock cycle) on that state.
+• Before the first round of every 24-cycle permutation sequence, a 576-bit
+  external input word is XOR-absorbed into the most-significant 576 bits of
+  the current state.
+• A single-cycle handshake (`in_ready`/`ack`) starts the sequence; the
+  module produces a single-cycle completion pulse (`out_ready`) when the
+  24th round has been committed to the `out` register.
+• No other functional behaviour is defined by the RTL.
+
+Role in a larger system
+• Unspecified by the RTL; it simply delivers a 24-round permutation service.
+
+────────────────────────────────────────────────────────────────────────────
+2.  Parameters
+────────────────────────────────────────────────────────────────────────────
+This module has no parameters.
+
+────────────────────────────────────────────────────────────────────────────
+3.  Ports (exact order)
+────────────────────────────────────────────────────────────────────────────
+1. clk          – input, 1 bit  
+   Clock for all sequential logic; rising-edge active.
+
+2. reset        – input, 1 bit  
+   Asynchronous behaviour is **not** coded; synchronous clear on every
+   rising edge where `reset == 1`.
+
+3. in           – input, 576 bits  [575:0]  
+   Data word to be XOR-absorbed into the state when a new permutation
+   sequence starts. Level-sampled only in the cycle where `ack` is high.
+
+4. in_ready     – input, 1 bit  
+   Requests a new permutation sequence. Must stay high for exactly one
+   clock if a single pulse is desired; the module ignores it while a
+   permutation is in progress.
+
+5. ack          – output, 1 bit  
+   High for exactly the same clock cycle in which the module accepts
+   `in`. Timing: registered output, asserted together with the first state
+   update of a permutation sequence.
+
+6. out          – output reg, 1600 bits [1599:0]  
+   Registered copy of the internal state after every round. During an
+   active permutation it therefore changes every clock; its value becomes
+   *final* (i.e. permutation result) when `out_ready` is asserted.
+
+7. out_ready    – output reg, 1 bit  
+   Single-cycle pulse signalling that the 24th round has just been
+   committed to `out`. Stays low at all other times.
+
+Timing semantics of all outputs
+• All outputs update on the rising edge of `clk`.
+• No combinational outputs exist; there is always a full clock-to-output
+  delay.
+
+────────────────────────────────────────────────────────────────────────────
+4.  Detailed Behaviour
+────────────────────────────────────────────────────────────────────────────
+Terminology  
+Let S[n] denote bit n of the 1600-bit state register `out`
+(0 = least significant, 1599 = most significant).
+
+Handshake condition  
+accept = (in_ready == 1) & (calc == 0)
+
+Per-cycle algorithm
+
+Cycle 0 (accept = 1)
+• `ack` is asserted.
+• The next-state candidate is assembled as:
+    round_in =
+        { in ⊕ S[1599:1024],          // 576 MSBs XOR-absorbed
+          S[1023:0] }                // remaining 1024 bits unchanged
+• `rc` (64 bit round constant) is produced by sub-module rconst_dut with
+  selector vector { i, accept } == { 23’b0, 1’b1 }.
+• Sub-module round_dut computes round_out = f(round_in, rc).
+• Because update = accept = 1, `out` ≤ round_out on the same rising edge.
+• Internal control registers:
+    i    ≤ 23’b000…0001   (left-shift register gets a ‘1’ in bit 0)
+    calc ≤ 1
+
+Cycles 1 … 22 (accept = 0, calc = 1)
+• Each cycle performs exactly one additional permutation round.
+• Selector vector { i, accept } contains a single ‘1’ that marches from
+  bit 0 up to bit 21; rconst_dut therefore delivers the appropriate round
+  constant for that round.
+• `out` is updated with round_dut(out, rc) every cycle (update = 1).
+• i shifts left by one position each clock.
+
+Cycle 23 (i[22] == 1)
+• round 24 is executed with selector { i, accept } where only i[22] = 1.
+• `out` is updated with the final round result.
+• calc becomes 0 (because i[22] == 1).
+• out_ready ≤ 1 (final result valid).
+• ack remains 0 (accept is 0).
+
+Cycle 24 and all later cycles (until next accept)
+• update = 0, `out` holds its last value.
+• out_ready is cleared to 0 immediately if / when a new accept occurs;
+  otherwise it remains 1 indefinitely.
+• Module is idle and ready to accept a new `in_ready` pulse.
+
+Round-constant sequencing  
+The 24-bit vector { i, accept } is a one-hot pointer whose ‘1’ walks from
+LSB to MSB, providing deterministic round indices 0…23 to rconst_dut.
+
+────────────────────────────────────────────────────────────────────────────
+5.  Timing and Update Semantics
+────────────────────────────────────────────────────────────────────────────
+• All state changes occur synchronously on the rising edge of `clk`.
+• `reset == 1` synchronously sets:
+    i = 0, calc = 0, out = 1600’b0, out_ready = 0.
+• No combinational paths from inputs to outputs exist; therefore the
+  minimum delay from any input change to any output change is one clock
+  period.
+
+────────────────────────────────────────────────────────────────────────────
+6.  Internal Logic Summary (only behaviourally relevant parts)
+────────────────────────────────────────────────────────────────────────────
+i[22:0]   – 23-bit left-shift register that tracks which round is current.  
+calc      – Boolean “busy” flag (1 while rounds are executing).  
+update    – calc | accept. Governs writes to the 1600-bit state register.  
+round_dut – Purely combinational function: (1600-bit state, 64-bit rc) →
+            1600-bit next state (exact implementation not defined here).  
+rconst_dut– Combinational lookup of the 64-bit round constant from a 24-bit
+            one-hot selector.
+
+────────────────────────────────────────────────────────────────────────────
+A.  State / Mode Summary
+────────────────────────────────────────────────────────────────────────────
+The module has exactly one operational mode (“idle / computing” is encoded
+by the single flag `calc`). All behaviour is governed by synchronous
+registers; no additional hidden states exist.
+
+────────────────────────────────────────────────────────────────────────────
+B.  Timing / Propagation Example
+────────────────────────────────────────────────────────────────────────────
+Assume reset is already de-asserted and the module is idle (`calc = 0`).
+
+t = 10 ns (rising edge)  
+• in_ready = 1  
+• accept = 1 → ack asserted  
+• round 0 executed, `out` updated.  
+• calc set to 1, i = …00001
+
+t = 50 ns … 530 ns (22 more rising edges)  
+• Each edge executes one round and shifts i.  
+• ack = 0 throughout.  
+• out_ready = 0 throughout.
+
+t = 550 ns (rising edge where i[22] == 1)  
+• Round 23 executed.  
+• `out` updated with final result.  
+• out_ready asserted (= permutation finished).  
+• calc cleared to 0.
+
+t = 590 ns (next rising edge)  
+• If in_ready is 0, module remains idle with out_ready still 1.  
+• If in_ready is 1, a new accept occurs, out_ready cleared, and a new
+  24-cycle permutation sequence starts exactly as described above.
+
+────────────────────────────────────────────────────────────────────────────
+C.  Complete Behavioural Walk-through
+────────────────────────────────────────────────────────────────────────────
+1. Module starts in reset-cleared state: internal state = 0, not busy.  
+2. External logic raises `in_ready` (no other constraint).  
+3. The same clock edge:
+   • Module asserts `ack`.  
+   • 576 input bits are XOR-merged into the upper slice of the 1600-bit
+     state, creating `round_in`.  
+   • Round constant #0 is fetched, round_dut executes, and `out` captures
+     the result.  
+   • Control logic sets `calc = 1` and initialises the round pointer `i`.
+4. For the next 22 clocks the module
+   • Shifts `i`, thereby selecting successive round constants (#1…22).  
+   • Computes and stores a new state every cycle.  
+5. On the 24th clock (when `i[22] == 1`)
+   • Executes the final round (#23).  
+   • Clears `calc`, asserts `out_ready`.  
+   • Internal state (`out`) now holds the fully permuted value.
+6. Module is idle and may accept a new request; any new `in_ready` pulse
+   restarts the entire 24-cycle sequence, clearing `out_ready` and issuing
+   a new `ack`.
+
+That description is sufficient to reproduce an RTL implementation that
+matches the original module’s external behaviour cycle-for-cycle.
+
+────────────────────────────────────────────────────────────────────────────
+
+
+ ### The following code is incomplete. Please only complete the missing parts and do not modify the existing implementation. 
+
+module f_permutation_dut(clk, reset, in, in_ready, ack, out, out_ready);
+input               clk, reset;
+input      [575:0]  in;
+input               in_ready;
+output              ack;
+output reg [1599:0] out;
+output reg          out_ready;
+reg        [22:0]   i;
+wire       [1599:0] round_in, round_out;
+wire       [63:0]   rc;
+wire                update;
+wire                accept;
+reg                 calc;
+rconst_dut
+      rconst_ ({i, accept}, rc);
+round_dut
+      round_ (round_in, rc, round_out);
+endmodule

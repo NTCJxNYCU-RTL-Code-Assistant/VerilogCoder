@@ -108,7 +108,7 @@ elif isinstance(gpt4_config_list, dict):
 
     
 task_planner_llm_gpt4_config_list[0]["max_completion_tokens"] = 10240
-kg_llm_gpt4_config_list[0]["max_completion_tokens"] = 10241
+kg_llm_gpt4_config_list[0]["max_completion_tokens"] = 10240
 graph_retrieval_llm_gpt4_config_list[0]["max_completion_tokens"] = 10242
 verilog_writing_llm_gpt4_config_list[0]["max_completion_tokens"] = 10243
 verilog_debug_llm_gpt4_config_list[0]["max_completion_tokens"] = 10244
@@ -130,9 +130,9 @@ print("[Info]: VerilogCoder llm configs = ", llm_configs)
 
 # Load verilog problem sets
 # Add questions
-# user_task_ids = {'sha3'}
+user_task_ids = {'sha3'}
 # user_task_ids = {'bubble_sort'}
-user_task_ids = {'sdram'}
+#user_task_ids = {'rs_decoder'}
 # user_task_ids = {'ece241_2014_q4'}
 # user_task_ids = {'zero'}
 # user_task_ids = {"sha3_high_thoughput"}
@@ -194,6 +194,7 @@ for _ in range(case_manager.total_tasks()):
     success = coding_agent.write_Verilog_module(
         cur_task_id=cur_task_id,
         spec=case_manager.get_cur_prompt(),
+        top_module=case_manager.get_cur_top_module(),
         golden_test_bench=case_manager.get_cur_task_test(),
         plan_filename=plan_filename,
         have_plans=have_plans)

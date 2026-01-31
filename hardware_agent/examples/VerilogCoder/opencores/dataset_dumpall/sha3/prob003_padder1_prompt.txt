@@ -1,0 +1,82 @@
+Module Classification: Purely combinational
+
+1. Module Overview
+– Name: padder1_dut  
+– Classification: pure combinational  
+– Purpose / function: Produces a 32-bit output word that consists of the most-significant bytes of the 32-bit input followed by a fixed single-byte value 0x01 and any remaining least-significant bytes forced to 0x00. The number of most-significant input bytes to preserve is selected by the 2-bit control input byte_num (0-to-3).  
+– Role in a larger system: Unspecified by the RTL.
+
+2. Parameters  
+This module has no parameters.
+
+3. Ports (in declaration order)
+• in : input, 32-bit, index [31:0].  
+  – Role: Source word whose upper bytes may be propagated to the output.  
+  – Timing: Level-sensitive; used directly by combinational logic.
+
+• byte_num : input, 2-bit, index [1:0].  
+  – Role: Selects how many most-significant bytes from “in” are copied to “out”.  
+  – Encoding:
+    0 → copy none of the input bytes  
+    1 → copy the most-significant byte (bits 31:24)  
+    2 → copy the upper two bytes (bits 31:16)  
+    3 → copy the upper three bytes (bits 31:8)  
+  – Timing: Level-sensitive.
+
+• out : output reg, 32-bit, index [31:0].  
+  – Role: Resulting 32-bit word computed combinationally from “in” and “byte_num”.  
+  – Timing: Updates after combinational propagation delay whenever either input changes.
+
+4. Behavioral Specification (pure combinational)
+Let IN(31:0) be the current value of port in and BN be the unsigned value of port byte_num.
+
+The output OUT(31:0) is defined by:
+
+case BN
+  2’b00 : OUT = 32’h0100_0000;                       // constant value
+  2’b01 : OUT = { IN[31:24], 24’h01_0000 };          // keep 1 byte
+  2’b10 : OUT = { IN[31:16], 16’h01_00   };          // keep 2 bytes
+  2’b11 : OUT = { IN[31:8 ],  8’h01       };         // keep 3 bytes
+endcase
+
+Notes:
+• Curly-brace concatenation is the standard Verilog bit-concatenation operator.  
+• Numeric literals use Verilog’s base-10 width’hex format.  
+
+There is no default branch; all four possible 2-bit values are exhaustively covered.
+
+5. Timing and Update Semantics (combinational)
+– No clock, no reset, no registers other than the synthesizable output reg utilised purely for combinational assignment.  
+– The module is stateless.  
+– OUT is a continuous combinational function of IN and byte_num.  
+– When either input changes at time t, OUT assumes the value defined above after standard combinational propagation delay.
+
+6. Internal Logic Discussion
+The implementation is a single always @(*) block containing a 4-way case statement; no additional intermediate signals or hidden state exist.
+
+A. State / Mode Summary  
+This module is stateless and has no operational modes.
+
+B. Timing / Propagation Example  
+Suppose byte_num = 2 and IN = 32’hAABB_CCDD.  
+• At some time t0 these values hold; OUT = {AA,BB,01,00} = 32’hAABB_0100.  
+• At time t1 IN changes to 32’h1122_3344 while byte_num remains 2.  
+• After combinational delay δ, OUT updates to 32’h1122_0100.  
+No discrete cycles or edges are involved.
+
+C. Complete Behavioral Walkthrough  
+1. The module continuously monitors IN[31:0] and byte_num[1:0].  
+2. It deterministically selects one of four concatenation templates based solely on the current byte_num value.  
+3. For each template, it concatenates the specified upper bytes from IN with the fixed padding pattern 0x01 followed by the necessary number of 0x00 bytes so that the total width is 32 bits.  
+4. The computed 32-bit vector is driven onto OUT after pure combinational delay.  
+5. No memory elements or temporal sequencing exist; each new set of input levels immediately defines the corresponding output value.
+
+With this information another designer can recreate an RTL module that is functionally and propagation-accurate equivalent to the provided code.
+
+ ### The following code is incomplete. Please only complete the missing parts and do not modify the existing implementation. 
+
+module padder1_dut(in, byte_num, out);
+input      [31:0] in;
+input      [1:0]  byte_num;
+output reg [31:0] out;
+endmodule

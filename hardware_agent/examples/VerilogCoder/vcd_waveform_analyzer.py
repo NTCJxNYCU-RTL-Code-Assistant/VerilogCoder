@@ -148,11 +148,11 @@ def tabular_via_dataframe(vcd_path,
             # transformed_signals.append(insert_field_before_bracket(signal_fields[-1], "_tb"))
             tb_signals.append(signal_fields[-1])
         # good1 is the reference design; top_module1 is the generated design
-        elif signal_fields[-2] == "top_module1":
+        elif "top_module1" in signal_fields:
             transformed_signals.append(
                 insert_field_before_bracket(signal_fields[-1], "_dut"))
         # should not pull out reference waveform since the internal signal is not correct
-        elif signal_fields[-2] == "good1" and signal_fields[
+        elif "good1" in signal_fields and signal_fields[
                 -1] in ori_mismatch_columns:
             transformed_signals.append(
                 insert_field_before_bracket(signal_fields[-1], "_ref"))

@@ -1,0 +1,149 @@
+## 1. Module Overview
+
+- **Exact module name**: `Omega_Phy_dut`
+- **Classification**: Sequential (clocked)
+- **Overall purpose**: The `Omega_Phy_dut` module computes the Omega and Phy polynomials based on provided syndromes and Lamda coefficients. Omega is calculated as the product of the syndromes and Lamda, computed modulo 16. Phy is the derivative of the Lamda polynomial.
+- **Role within a larger system**: The role is unspecified by the RTL.
+
+## 2. Parameters
+
+> This module has no parameters.
+
+## 3. Ports (Exact and Ordered)
+
+1. **Clock and Reset**
+   - `clk`: Input, single bit. The clock signal that drives synchronous operations in the module. Planned to be 56 MHz.
+   - `reset`: Input, single bit. Active high asynchronous reset that initializes the module's internal states and outputs.
+
+2. **Control Signals**
+   - `Sm_ready`: Input, single bit. Indicates that the input syndromes are ready for processing.
+   - `L_ready`: Input, single bit. Indicates that Lamda polynomial coefficients are ready.
+   - `poly_ready`: Output, single bit. Becomes high for one clock cycle to indicate Omega and Phy polynomials are ready.
+
+3. **Input Syndromes**
+   - `Sm1` to `Sm16`: Inputs, each 8 bits wide. Syndromes provided to calculate the Omega polynomial. Arranged in order.
+
+4. **Input Lamda Coefficients**
+   - `L1` to `L8`: Inputs, each 8 bits wide. Lamda polynomial coefficients used for Omega and Phy calculation.
+
+5. **Power and Decimal Memory Interfaces**
+   - `pow1`, `pow2`, `pow3`: Inputs, each 8 bits wide. Power values read from external memory.
+   - `dec1`: Input, 8 bits wide. Decimal value read from external memory.
+   - `add_pow1`, `add_pow2`, `add_pow3`: Outputs, each 8 bits wide. Addresses to power memories for reading power values.
+   - `add_dec1`: Output, 8 bits wide. Address to decimal memory for reading decimal value.
+
+6. **Omega Polynomial Outputs**
+   - `O1` to `O16`: Outputs, each 8 bits wide. Represent the Omega polynomial coefficients from 1 to 16.
+
+7. **Phy Polynomial Outputs**
+   - `P1`, `P3`, `P5`, `P7`: Outputs, each 8 bits wide. Represented as decimal and power values for specific coefficients of the Phy polynomial.
+
+## 4. Behavioral Specification
+
+This module computes two polynomials over multiple clock cycles using a finite state machine:
+
+- **Initialization**: On reset, all internal registers and output signals are cleared or set to their initial values. The module enters `state1`.
+  
+- **State1 (`Register Inputs`)**: The module waits for `Sm_ready` to capture incoming syndrome values into an Omega register array. If `L_ready` is asserted, it captures Lamda coefficients into a register array and initializes certain Phy outputs. The module progresses to `state2`.
+  
+- **State2 (`Power Retrieval`)**: The module cycles through a set of predefined operations to load power values corresponding to the syndromes and Lamda coefficients from external power memory interfaces. This occurs over nine cycles, transitioning to `state10` once syndromes and lamda powers are acquired.
+
+- **State10 to State25 (`Omega Calculation`)**: In each state from `state10` through `state24`, the module calculates a specific Omega coefficient (O2 to O16). It uses the power values from the retrieved arrays, adding and conditionally modifying them based on a flag indicating overflow. State transitions occur as specific calculations complete per output.
+  
+- **State25 (`Power Update`)**: Updates the power values for Omega outputs O2 to O16 by re-retrieving power data from the memory interface, indicating completion with `poly_ready` signal.
+  
+- **State26 (`Completion`)**: Resets `poly_ready` and cycles the state machine back to `state1` to await new data.
+
+## 5. Timing and Update Semantics
+
+- The module operates synchronously with all transitions driven by the positive edge of `clk`.
+- Asynchronous reset sets outputs and internal states to defined initial values.
+- Omega and Phy calculations are inherently multi-cycle processes segmented into discreet states.
+
+## 6. Internal Logic Discussion
+
+- **Set and clear behaviors**: Initialization and state maintenance ensure all required calculations and retrievals operate correctly and synchronously.
+- **Intermediate storage**: Syndromes and Lamda powers are stored temporarily in registers and accessed during coefficients calculation of Omega and Phy polynomials.
+
+### A. State / Mode Summary
+
+This module operates predominantly through a state machine with 26 distinct states managing input registration, power retrieval, intermediate calculations, and final results preparation for output.
+
+### B. Timing / Propagation Example
+
+When `Sm_ready` and `L_ready` are asserted in `state1`, the input syndromes and Lamda coefficients are captured synchronously on the next clock edge into the internal registers. After processing through the states, `poly_ready` is asserted for a single cycle indicating output readiness.
+
+### C. Complete Behavioral Walkthrough
+
+Leveraging a state machine, the module begins by registering inputs, retrieves necessary powers, then enters a calculated phase where each Omega coefficient (O2 through O16) is determined over multiple states. Derivative Phy polynomial results are calculated in parallel depending on the availability of the Lamda inputs. Once the results are ready, indicated by `poly_ready`, the module can begin the process anew, continuously providing polynomial result calculations as directed by input readiness signals.
+
+ ### The following code is incomplete. Please only complete the missing parts and do not modify the existing implementation. 
+
+module Omega_Phy_dut
+    ///// calculates Omega and Phy polynomials 
+    ///    Omega = (Syndromes_16 * Lamda_8)  mod16
+    ///    Phy = dirvetive (Lamda_8)      
+    (
+
+    input clk, // input clock planned to be 56 Mhz
+    input reset, // active high asynchronous reset
+
+    //   active high flag for one clock to indicate that input Sm is ready
+    input Sm_ready,  
+    // input modified syndromes in decimal format 
+    input [7:0] Sm1,Sm2,Sm3,Sm4,Sm5,Sm6,Sm7,Sm8,                
+    input [7:0] Sm9,Sm10,Sm11,Sm12,Sm13,Sm14,Sm15,Sm16,    
+
+    // active high flag for one clock to indicate that lamda polynomial is ready
+    input L_ready, 
+    ///  lamda coeff values in decimal format 
+    input [7:0] L1,L2,L3,L4,L5,L6,L7,L8,  
+
+    input [7:0] pow1,pow2,pow3,  /// output of power memories
+    input [7:0] dec1,        	/// output of decimal memories
+
+    output reg [7:0] add_pow1,add_pow2,add_pow3, /// address to power memories
+    output  [7:0] add_dec1,              		 /// address to decimal memories
+
+    // active high flag for one clock to indicate that Phy and Omega polynomials are ready
+    output reg poly_ready ,  
+    // decimal value of first coeff of Omega polynomial
+    output  [7:0] O1,    
+    /// power values of omega polynomial coeff from 2:16
+    output  [7:0] O2,O3,O4,O5,O6,O7,O8,O9,O10,O11,O12,O13,O14,O15,O16,  
+
+    output  reg [7:0] P1,    // decimal value of first coeff of Phy polynomial
+    output  reg [7:0] P3,P5,P7  /// power values of phy polynomial 
+
+
+    );
+parameter state1    =  19'b0000000000000000001;
+parameter state2    =  19'b0000000000000000010;
+parameter state10  =  19'b0000000000000000100;
+parameter state11  =  19'b0000000000000001000;
+parameter state12  =  19'b0000000000000010000;
+parameter state13  =  19'b0000000000000100000;
+parameter state14  =  19'b0000000000001000000;
+parameter state15  =  19'b0000000000010000000;
+parameter state16  =  19'b0000000000100000000;
+parameter state17  =  19'b0000000001000000000;
+parameter state18  =  19'b0000000010000000000;
+parameter state19  =  19'b0000000100000000000;
+parameter state20  =  19'b0000001000000000000;
+parameter state21  =  19'b0000010000000000000;
+parameter state22  =  19'b0000100000000000000;
+parameter state23  =  19'b0001000000000000000;
+parameter state24  =  19'b0010000000000000000;
+parameter state25  =  19'b0100000000000000000;
+parameter state26  =  19'b1000000000000000000;
+reg [18:0] state = state1;
+reg [7:0] Sp [1:15];
+reg [7:0] L   [1:8];
+reg [7:0] Lp [1:8];
+reg [7:0] O [1:16];
+reg [3:0]  cnt;
+reg [3:0]  cnt1;
+reg [3:0]  cnt2;
+reg [8:0] add_1;
+reg F1;
+endmodule

@@ -177,13 +177,13 @@ class VerilogCoder:
         self.code_debug_agent.revalidate_llm_config()
 
     # write Verilog module
-    def write_Verilog_module(self, cur_task_id, spec, golden_test_bench,
+    def write_Verilog_module(self, cur_task_id, spec, top_module, golden_test_bench,
                              plan_filename: str= "",
                              completed_module: str="",
                              have_plans: bool = False,
                              skip_kg_plan: bool = False,
                              have_completed_code: bool = False):
-        self.verilog_tools.load_test_bench(task_id=cur_task_id, spec=spec,
+        self.verilog_tools.load_test_bench(task_id=cur_task_id, spec=spec, top_module=top_module,
                                            test_bench=golden_test_bench, write_file=True)
 
         if not have_plans:

@@ -1,0 +1,223 @@
+## 1. Module Overview
+
+* **Module Name:** `error_correction_dut`
+* **Classification:** Sequential (clocked)
+* **Overall Purpose:** The module evaluates errors in transmitted data based on input polynomials, locates these errors, and corrects them. This appears to be a part of an error correction process, likely related to a coded communication or storage system.
+* **Exact Function:** The module reads polynomial coefficients and roots, calculates error locations and magnitudes, and corrects errors by XORing with initial values. It uses polynomials to process data over several clock cycles to compute correction values.
+* **Role within a Larger System:** The role is not explicitly specified by the RTL but implies use in error correction applications possibly in communication systems.
+
+## 2. Parameters
+
+> “This module has no parameters.”
+
+## 3. Ports (Exact and Ordered)
+
+1. **Input:** `clk`
+   - **Direction:** Input
+   - **Bit-width:** 1 bit
+   - **Functional Role:** Clock signal for synchronous operation
+   - **Timing Semantics:** All sequential processes are synchronized to the rising edge of this clock.
+
+2. **Input:** `reset`
+   - **Direction:** Input
+   - **Bit-width:** 1 bit
+   - **Functional Role:** Asynchronous reset signal (active high)
+   - **Timing Semantics:** Resets all state elements asynchronously when high.
+
+3. **Input:** `poly_ready`
+   - **Direction:** Input
+   - **Bit-width:** 1 bit
+   - **Functional Role:** Signals that polynomial data is ready
+   - **Timing Semantics:** Level-sensitive
+
+4. **Input:** `O1` to `O16`
+   - **Direction:** Input
+   - **Bit-width:** 8 bits each
+   - **Functional Role:** Coefficients of the Omega polynomial
+   - **Timing Semantics:** Level-sensitive
+
+5. **Input:** `P1`, `P3`, `P5`, `P7`
+   - **Direction:** Input
+   - **Bit-width:** 8 bits each
+   - **Functional Role:** Coefficients of the Phy polynomial
+   - **Timing Semantics:** Level-sensitive
+
+6. **Input:** `roots_ready`
+   - **Direction:** Input
+   - **Bit-width:** 1 bit
+   - **Functional Role:** Indicates that root values are ready
+   - **Timing Semantics:** Level-sensitive
+
+7. **Input:** `root_count`
+   - **Direction:** Input
+   - **Bit-width:** 4 bits
+   - **Functional Role:** Number of roots
+   - **Timing Semantics:** Level-sensitive
+
+8. **Input:** `r1` to `r8`
+   - **Direction:** Input
+   - **Bit-width:** 8 bits each
+   - **Functional Role:** Roots of the lambda polynomial
+   - **Timing Semantics:** Level-sensitive
+
+9. **Input:** `pow1` to `pow4`
+   - **Direction:** Input
+   - **Bit-width:** 8 bits each
+   - **Functional Role:** Power values from power memories
+   - **Timing Semantics:** Level-sensitive
+
+10. **Input:** `dec1` to `dec4`
+    - **Direction:** Input
+    - **Bit-width:** 8 bits each
+    - **Functional Role:** Decimal values from decimal memories
+    - **Timing Semantics:** Level-sensitive
+
+11. **Output:** `add_pow1` to `add_pow4`
+    - **Direction:** Output
+    - **Bit-width:** 8 bits each
+    - **Functional Role:** Addresses for power memories
+    - **Timing Semantics:** Updated in state6 post calculations
+
+12. **Output:** `add_dec1` to `add_dec4`
+    - **Direction:** Output
+    - **Bit-width:** 8 bits each
+    - **Functional Role:** Addresses for decimal memories
+    - **Timing Semantics:** Continuously evaluated
+
+13. **Output:** `RE`, `WE`
+    - **Direction:** Output
+    - **Bit-width:** 1 bit each
+    - **Functional Role:** Read and Write enable signals
+    - **Timing Semantics:** Controlled by the internal state machine
+
+14. **Output:** `Address`
+    - **Direction:** Output
+    - **Bit-width:** 8 bits
+    - **Functional Role:** Address for input block storage memory
+    - **Timing Semantics:** Updated when required by state logic
+
+15. **Output:** `correction_value`
+    - **Direction:** Output
+    - **Bit-width:** 8 bits
+    - **Functional Role:** Correction value to be XORed with the initial value
+    - **Timing Semantics:** Updated through the operation stages
+
+16. **Input:** `initial_value`
+    - **Direction:** Input
+    - **Bit-width:** 8 bits
+    - **Functional Role:** Initial data value to be corrected
+    - **Timing Semantics:** Level-sensitive
+
+17. **Output:** `DONE`
+    - **Direction:** Output
+    - **Bit-width:** 1 bit
+    - **Functional Role:** Completion signal for the correction process
+    - **Timing Semantics:** Set when all operations are complete
+
+## 4. Behavioral Specification
+
+The `error_correction_dut` is a state-machine based sequential module that executes error correction over several states synchronized to the clock:
+
+1. **State 1:** Initialize and register polynomial and root inputs when `poly_ready` and `roots_ready` signals are asserted.
+2. **State 2:** Convert root values to their corresponding power values, performing operations across clock cycles using `cnt` as a cycle counter.
+3. **State 3:** Allocate error locations and evaluate power values into `eL` and `eV`.
+4. **State 4:** One by one error processing using the error locations to calculate addresses for reads and writes into correction and evaluation memories.
+5. **State 5:** Sequential operation across multiple clock cycles using internal combinations of operations to calculate contributing polynomial sums.
+6. **State 6:** Calculate the corrective value, apply completion condition to `DONE`, and return to the state machine's initial state on completion.
+7. **State 7:** Acts as a reset or completion state.
+
+## 5. Timing and Update Semantics
+
+* **Clock Domain:** Operations are synchronized to the rising edge of `clk`.
+* **Reset Behavior:** Reset is asynchronous and clears all registers to their initial states when high.
+* **Update and Execution:** Execution progresses from state1 to state7, processing the input data, calculating required error corrections, and applying these to generate valid output over a sequence of clock cycles.
+
+## 6. Internal Logic Discussion
+
+The procedure involves polynomial arithmetic, error-location identification, and cyclical data reading/writing. Intermediate results are stored and managed using the state machine over a series of defined operations. The transformation logic is spread over several defined states with control signals directing flow between operations.
+
+---
+
+### A. State / Mode Summary
+
+> “This module is sequential and its operation is defined by state transitions across seven states.”
+
+### B. Timing / Propagation Example
+
+"When the module is reset, all registers are cleared. Upon assertion of `poly_ready` and `roots_ready`, state transitions begin, and processing continues across clock cycles until corrections are calculated and written to memory. The signal `DONE` indicates completion after cycling through all states."
+
+### C. Complete Behavioral Walkthrough
+
+Upon initial reset, all internal registers are initialized. Once `poly_ready` and `roots_ready` signals are high, polynomial coefficients and roots are stored. As the processing progresses, roots convert to power values and correction values are identified by evaluating polynomial relations. These are stored and read in a cyclical manner across defined state transitions, leveraging power and decimal memory feedback to compute corrections. Finally, `correction_value` is determined through XOR of initial values with computed results, culminating with the assertion of `DONE` to signal completion.
+
+ ### The following code is incomplete. Please only complete the missing parts and do not modify the existing implementation. 
+
+module error_correction_dut
+    //// evaluate error values, locations and correct it
+    (
+
+    input clk, // input clock planned to be 56 Mhz
+    input reset, // active high asynchronous reset
+
+
+    //active high flag for one clock to indicate that Phy and Omega polynomials are ready
+    input poly_ready ,
+    // decimal value of first coeff of Omega polynomial  
+    input  [7:0] O1,    
+    /// power values of omega polynomial coeff from 2:16
+    input  [7:0] O2,O3,O4,O5,O6,O7,O8,O9,O10,O11,O12,O13,O14,O15,O16,  
+    input [7:0] P1,    // decimal value of first coeff of Phy polynomial
+    input [7:0] P3,P5,P7,  /// power values of Phy polynomial coeff 
+
+    input roots_ready, // output active high flag to indicate that all roots is ready
+    input [3:0] root_count, ///  up to 8
+    input [7:0] r1,r2,r3,r4,r5,r6,r7,r8, // roots of lamda polynomial up to 8 roots
+
+    input [7:0] pow1,pow2,pow3,pow4,    /// output of power memories
+    input [7:0] dec1,dec2,dec3, dec4,        /// output of decimal memories
+
+    output reg [7:0] add_pow1,add_pow2,add_pow3,add_pow4, /// address to power memories
+    output  [7:0] add_dec1,add_dec2,add_dec3,add_dec4,  /// address to decimal memories
+
+    output RE,WE,    //// Write and read enable for input block storage memory
+    output reg [7:0] Address,   //// address to input block storage memory
+    //// corrected value  =  initial value xor  correction
+    output reg [7:0] correction_value,     
+    input [7:0] initial_value,  //// input initial value
+
+    output reg DONE
+
+    );
+reg WE_0,RE_0;
+reg [3:0] r_cnt;
+reg [7:0] rd [1:8];
+reg [7:0] rp [1:8];
+reg [7:0] O [1:16];
+reg [7:0] P [1:4];
+reg [7:0] eL [1:8];
+reg [7:0] eV [1:8];
+reg [7:0] V;
+reg [8:0] Vx2;
+reg [9:0] Vx3;
+reg [10:0] Vx6;
+reg [10:0] Vx7;
+reg [10:0] Vx8;
+reg [11:0] Vx9;
+reg [11:0] add1,add2,add3,add4;
+reg [8:0] add_1,add_2,add_3,add_4;
+reg IS_255_1,IS_255_2,IS_255_3,IS_255_4;
+reg IS_255_1_delayed,IS_255_2_delayed,IS_255_3_delayed,IS_255_4_delayed;
+reg div1;
+reg [7:0] OV,PV;
+reg [3:0] cnt ;
+reg [3:0] op_cnt;
+parameter state1  = 7'b0000001;
+parameter state2  = 7'b0000010;
+parameter state3  = 7'b0000100;
+parameter state4  = 7'b0001000;
+parameter state5  = 7'b0010000;
+parameter state6  = 7'b0100000;
+parameter state7  = 7'b1000000;
+reg [6:0] state = state1;
+reg in_range;
+endmodule

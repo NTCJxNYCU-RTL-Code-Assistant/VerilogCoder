@@ -49,6 +49,12 @@ class VerilogCaseManager:
         '''
         print('current test is ', self.verilog_cases[self.cur_task]['task_id'])
         return self.verilog_cases[self.cur_task]['task_id']
+        
+    def get_cur_top_module(self):
+        '''
+          return the topmodule of current test
+        '''
+        return self.verilog_cases[self.cur_task]['top']
 
     def next(self):
         if self.cur_task < len(self.verilog_cases):

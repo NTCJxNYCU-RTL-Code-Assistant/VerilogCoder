@@ -1,0 +1,180 @@
+## 1. Module Overview
+
+* **Exact module name**: `lamda_roots_dut`
+* **Classification**: Sequential (clocked)
+* **Overall purpose**: The module calculates the roots of a lambda polynomial with coefficients provided as inputs.
+* **The exact function it computes**: Given coefficients of a lambda polynomial, the module calculates potential root values as elements in a Galois Field (GF) and determines up to 8 roots. It outputs these calculated roots and indicates when they are all ready.
+* **Its role within a larger system**: Unspecified by the RTL. However, given its functionality related to polynomials, it may be part of a system dealing with error detection and correction, such as Reed-Solomon decoding.
+
+## 2. Parameters
+
+> This module has no parameters.
+
+## 3. Ports (Exact and Ordered)
+
+1. **Input**: `CE`
+   * Direction: Input
+   * Bit-width: 1 bit
+   * Functional role: Active high flag to indicate the readiness of lambda polynomial coefficients.
+   * Timing semantics: Synchronized to the rising edge of `clk`.
+
+2. **Input**: `clk`
+   * Direction: Input
+   * Bit-width: 1 bit
+   * Functional role: Clock signal, planned to operate at 56 MHz.
+   * Timing semantics: Clock for all sequential logic, rising edge captures data.
+
+3. **Input**: `reset`
+   * Direction: Input
+   * Bit-width: 1 bit
+   * Functional role: Active high asynchronous reset.
+   * Timing semantics: When `reset` is asserted, all internal states and outputs are initialized.
+
+4. **Inputs**: `Lc0`, `Lc1`, `Lc2`, `Lc3`, `Lc4`, `Lc5`, `Lc6`, `Lc7`, `Lc8`
+   * Direction: Input
+   * Bit-width: 8 bits each
+   * Functional role: Coefficients of the lambda polynomial.
+   * Timing semantics: Loaded when `CE` is high.
+
+5. **Output**: `add_GF_ascending`
+   * Direction: Output
+   * Bit-width: 8 bits
+   * Functional role: Address output to Galois Field ascending ROM.
+   * Timing semantics: Driven based on input coefficients and computation steps, updates after relevant computation delay.
+
+6. **Outputs**: `add_GF_dec0`, `add_GF_dec1`, `add_GF_dec2`
+   * Direction: Output
+   * Bit-width: 8 bits each
+   * Functional role: Address outputs to Galois Field descending ROM.
+   * Timing semantics: Update at specific computation stages during polynomial evaluation.
+
+7. **Input**: `power`
+   * Direction: Input
+   * Bit-width: 8 bits
+   * Functional role: Represents a power value from the GF_ascending_rom.
+   * Timing semantics: Used in polynomial calculations.
+
+8. **Inputs**: `decimal0`, `decimal1`, `decimal2`
+   * Direction: Input
+   * Bit-width: 8 bits each
+   * Functional role: Decimal values from GF_dec_rom.
+   * Timing semantics: Used in polynomial evaluations at specified delays.
+
+9. **Output**: `CEO`
+   * Direction: Output
+   * Bit-width: 1 bit
+   * Functional role: Flags when all roots are ready, active high for one clock cycle.
+   * Timing semantics: Changes on computation completion.
+
+10. **Output**: `root_cnt`
+    * Direction: Output
+    * Bit-width: 4 bits
+    * Functional role: Counts the number of roots detected (up to 8).
+    * Timing semantics: Increments each time a root condition is verified (i.e., X3 equals zero).
+
+11. **Outputs**: `r1`, `r2`, `r3`, `r4`, `r5`, `r6`, `r7`, `r8`
+    * Direction: Output
+    * Bit-width: 8 bits each
+    * Functional role: Outputs the values of calculated roots for factors in the lambda polynomial.
+    * Timing semantics: Updated when a root is confirmed.
+
+## 4. Behavioral Specification
+
+The `lamda_roots_dut` module performs sequential computations to evaluate potential roots for a polynomial described by input coefficients. It involves a multi-stage pipeline approach described in a sequence of delay levels. Here are steps highlighting how it achieves this:
+
+1. **State and Initialization**:
+   - On reset (`reset` high), initialize internal states, coefficients, and outputs. Set `one` and `two` states to 0, zero initialize coefficients (`L0` to `L8`), output registers, and internal counters.
+
+2. **Coefficient Loading**:
+   - On the active `CE` signal:
+     - Set `one` state to active.
+     - Load polynomial coefficients into internal registers `L0` to `L8`.
+     - Set internal counters to prepare for root calculations.
+
+3. **State One Processing**:
+   - For each clock cycle with `one` active, decrement counter `cnt9` and perform simultaneous preparation for the conversion of coefficients into powers, assigned to `add_GF_ascending`.
+
+4. **State Transition (to `two`)**:
+   - Complete setting powers for coefficients and transition to `two` state for evaluation of the polynomial values by setting `two` state active once `cnt9` cycles complete.
+
+5. **Root Evaluation (State Two)**:
+   - Every three clocks (controlled by `cnt3` counter), evaluate a new potential root by updating `V`.
+   - Execute a series of calculations including polynomial evaluations scaled by powers, checking the polynomial solution against zeros using XOR reductions.
+   - If `X3` equals zero in the controlled place (monitored by `chk_flag`), confirm a root and increment `root_cnt`.
+
+6. **Output Roots**:
+   - Output confirmed roots to `r1` to `r8` based on the detected number, subtracting necessary offset from `V` to align to the GF indices.
+
+7. **Completion**:
+   - Once all values from the range `0` to `255` have been considered (marked by `E` state and specific delay checks), the module will deactivate state `two`, assert `CEO` to flag completion of computations, and reset evaluation readiness.
+
+## 5. Timing and Update Semantics
+
+* **Clock and Reset**: Driven by a clock signal that sequences calculations; includes an asynchronous reset.
+* **Sequential Logic Execution**: Based on defined state transitions (`one` and `two`) with multilevel evaluations per clock cycles.
+* **Outputs**: Changes in outputs (`add_GF_dec0`, `add_GF_dec1`, `add_GF_dec2`, `CEO`) occur after each delay stage integrates with input changes.
+
+## 6. Internal Logic Discussion
+
+The module uses a comprehensive collection of delay levels modeled with sequential logic to evaluate polynomial roots. It applies bitwise operations and GF arithmetic principles, leveraging transformation and delay pipelines to synchronize stages in polynomial computation.
+
+### A. State / Mode Summary
+
+> This module is broadly sequential, operating in two major states (`one` and `two`) that ensure the proper computation of polynomial roots through stepwise evaluation.
+
+### B. Timing / Propagation Example
+
+* When `CE` rises:
+  * Shift into computation of `one` state.
+  * Process coefficients through power transformations with multiple clock cycles.
+  * Transition into `two` state to examine roots over several delays.
+* When `CEO` rises:
+  * Indicate root calculations are complete post-evaluation of all GF potential roots.
+
+### C. Complete Behavioral Walkthrough
+
+Upon receiving initial polynomial data and a signal trigger (`CE`), the module proceeds to structure calculations across well-defined clock stages tied to internal states. As it navigates through a decomposition of operations tied to GF arithmetic, it manages internal state transitions by capturing conversion, estimation, and definitive root calculations iteratively. Each identified root value adjusts with modular transformation processing and completes once relevant flags signal the endpoint of calculations.
+
+ ### The following code is incomplete. Please only complete the missing parts and do not modify the existing implementation. 
+
+module lamda_roots_dut
+    (
+    // active high flag for one clock edge to indicate that lamda polynomial coeff is ready
+    input CE,  
+    input clk, // input clock planned to be 56 Mhz
+    input reset, // active high asynchronous reset
+    input [7:0] Lc0,Lc1,Lc2,Lc3,Lc4,Lc5,Lc6,Lc7,Lc8, /// input coeff of lamda polynomial
+
+    output reg [7:0] add_GF_ascending,   // output address to GF_ascending_rom
+    output reg[7:0] add_GF_dec0,add_GF_dec1,add_GF_dec2, // output address to GF_dec_rom
+
+    input [7:0] power,  // input power value from GF_ascending_rom
+    input [7:0] decimal0,decimal1,decimal2, // input decimal value of GF_dec_rom
+
+    // output active high flag to indicate that all roots is ready (for one clock)
+    output reg CEO,
+    output reg [3:0] root_cnt, ///  up to 8
+    // output roots of lamda polynomial up to 8 roots
+    output reg [7:0] r1,r2,r3,r4,r5,r6,r7,r8 
+    );
+reg one,two;
+reg [7:0] V,Vp;
+reg [3:0] cnt9;
+reg [1:0] cnt3;
+reg [11:0] add0,add1,add2;
+reg [8:0] Vx2;
+reg [9:0] Vx3;
+reg [10:0] Vx6;
+reg [7:0] X0,X1,X2,X3;
+reg [7:0] GF1,GF2,GF3,GF4;
+reg [7:0] GF5,GF6,GF7,GF8;
+reg [8:0] add_GF_dec0_reg,add_GF_dec1_reg,add_GF_dec2_reg;
+reg [7:0] add_GF_dec0_reg0,add_GF_dec1_reg0,add_GF_dec2_reg0;
+reg F0,F1,F2;
+reg FF0,FF1,FF2;
+reg FFF0,FFF1,FFF2;
+reg [7:0] L0,L1,L2,L3,L4,L5,L6,L7,L8;
+reg yes,E;
+reg chk_flag;
+reg [1:0] chk_cnt;
+endmodule

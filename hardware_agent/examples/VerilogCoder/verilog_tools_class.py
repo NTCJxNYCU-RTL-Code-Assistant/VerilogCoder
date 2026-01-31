@@ -11,12 +11,13 @@ import re
 import shutil
 from hardware_agent.examples.VerilogCoder.vcd_waveform_analyzer import parse_mismatch, get_tabular
 from hardware_agent.examples.VerilogCoder.debug_graph_analyzer import DebugGraph
+from hardware_agent.examples.VerilogCoder.linter import lint
 import sys
 from io import StringIO
-import json
 
 # utilities
 def check_functionality(vvp_output:str):
+    print(vvp_output)
     lines = vvp_output.splitlines()
     mismatches = None
     for line in lines:
@@ -140,6 +141,7 @@ class VerilogToolKits:
         self.completed_verilog = ""
         self.spec = "" # store the spec
         self.graph_tracer = None
+        self.submodule_name = ""
 
     def get_work_paths(self):
         return {'workdir': self.workdir,
@@ -150,13 +152,17 @@ class VerilogToolKits:
     def reset(self):
         self.test_bench = ""
         self.spec = ""
+        self.top_verilog=""
         self.cur_graph_verilog = ""
         self.completed_verilog = ""
         self.graph_tracer = None
 
-    def load_test_bench(self, task_id: str, spec: str, test_bench:str, write_file: bool=False):
+    def load_test_bench(self, task_id: str, spec: str, top_module: str,test_bench:str, write_file: bool=False):
+        print("fuck this project  " , task_id)
+        self.submodule_name = task_id + "_dut"
         self.spec = spec
         self.test_bench = test_bench
+        self.top_verilog = top_module 
         assert(self.test_bench != "")
         if not write_file:
             return
@@ -205,39 +211,45 @@ class VerilogToolKits:
         
         num_tb_lines = len(self.test_bench.splitlines())
         completed_verilog = completed_verilog.strip()
-        verilog_file = self.test_bench + "\n" + completed_verilog
         self.completed_verilog = completed_verilog  # record the latest verilog result
 
+               
+        verilog_file = self.test_bench  +  "\n\n" + completed_verilog
         with open(self.verilog_file_path, 'w') as f:
             f.write(verilog_file)
         f.close()
 
         # Mark: write out to construct the control graph
+
+        merged_verilog = self.top_verilog + "\n\n" + completed_verilog
+
         with open(self.completed_verilog_file_path, 'w') as f:
-            f.write(completed_verilog)
-        f.close()
-
+          f.write(merged_verilog)
+        
 
         
-        
-        for current_checking in  [ "Lint" ,"SystemVerilog"]:
+        for current_checking in  ["Verilog", "Lint" ,"SystemVerilog"]:
 
-            if current_checking == "Verilog":
-                cmd = ("iverilog -Wall -Winfloop -Wno-timescale -tnull " + self.completed_verilog_file_path).split(' ')
-            elif current_checking == "Lint":
-                cmd = ['python3','./hardware_agent/examples/VerilogCoder/linter.py', f'{self.completed_verilog_file_path}']
-            else:
-                cmd = ("iverilog -Wall -Winfloop -Wno-timescale -g2012 -s tb -o " + self.test_vpp_file_path + " " + self.verilog_file_path).split(' ')
-    
-            print(cmd)
-            # print(" ".join(cmd))
-            try:
-                outputs = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            except subprocess.CalledProcessError as e:
+            if current_checking == "Verilog" or current_checking == "SystemVerilog" :
+                if current_checking == "Verilog":
+                    cmd = f'dc_shell -x "analyze -f verilog {self.completed_verilog_file_path};  elaborate {self.submodule_name}; check_design; exit"|grep -E "Error|Latch"'
+                else:
+                    cmd = f'iverilog -Wall -Winfloop -Wno-sensitivity-entire-array -Wno-timescale -g2012 -s tb -o {self.test_vpp_file_path} {self.verilog_file_path} 2>&1 | grep -E "error"'
+                try:
+                  outputs = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell = True)
+                except subprocess.CalledProcessError as e:
                 # print('Exception return with error (code {}): {})'.format(e.returncode, e.output))
-                outputs = e.output
+                  outputs = e.output
 
-            outputs = outputs.decode("utf-8").splitlines()
+                outputs = outputs.decode("utf-8").splitlines()    
+            else:
+                outputs = lint(self.completed_verilog_file_path)
+
+    
+            print(current_checking)
+            
+            
+
             print(outputs)
             if len(outputs) != 0:
                 # compile error parameters
@@ -247,10 +259,17 @@ class VerilogToolKits:
 
                 for content in outputs:
                     if not ( re.search(r'sv:\d+', content) or re.search(r'v:\d+', content)):
-                        error_msg += content + "\n"
+                        if re.search(r'Latch', content ):
+                          error_msg += "Unwanted Inferered Latch: " + content + "\n"
+                        else:
+                          error_msg += content + "\n"
                         continue
                     tmp = content.split(':')
-                    m_error_line = int(tmp[1]) - 1
+                    print(tmp)
+                    if (current_checking == "Verilog"):
+                      m_error_line = int(tmp[2]) - 1
+                    else:
+                      m_error_line = int(tmp[1]) -1
                     # if m_error_line < num_tb_lines:
                     # skip
                     # m_error_line = 0
@@ -258,8 +277,10 @@ class VerilogToolKits:
                     if current_checking == "SystemVerilog" and m_error_line > num_tb_lines :
                         # m_error_line = m_error_line - num_tb_lines
                         compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
-                    elif current_checking == "Verilog" or current_checking == "Lint":
+                    elif current_checking == "Lint":
                         compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+                    elif current_checking == "Verilog":
+                        compiled_error[m_error_line] = " ".join(str(x) for x in tmp[3:])
                     else:
                         error_msg += content + "\n"
                 print('compiled error = ', compiled_error)
@@ -268,7 +289,7 @@ class VerilogToolKits:
                 if current_checking == "SystemVerilog":
                     commented_module = verilog_file.splitlines()
                 else:
-                    commented_module = completed_verilog.splitlines()
+                    commented_module = merged_verilog.splitlines()
                 module_error_msg = ""
                 error_cnt = 0
                 for m_error_line in compiled_error:
@@ -312,36 +333,44 @@ class VerilogToolKits:
         
         num_tb_lines = len(self.test_bench.splitlines())
         completed_verilog = completed_verilog.strip()
-        verilog_file = self.test_bench + "\n" + completed_verilog
         self.completed_verilog = completed_verilog  # record the latest verilog result
 
+      
+               
+        verilog_file = self.test_bench +  "\n\n" + completed_verilog
         with open(self.verilog_file_path, 'w') as f:
             f.write(verilog_file)
         f.close()
 
         # Mark: write out to construct the control graph
+
+        merged_verilog = self.top_verilog + "\n\n" + completed_verilog
+
         with open(self.completed_verilog_file_path, 'w') as f:
-            f.write(completed_verilog)
-        f.close()
+          f.write(merged_verilog)
+        
 
-        for current_checking in  [ "Lint",  "SystemVerilog"]:
+        for current_checking in  ["Verilog", "Lint" ,"SystemVerilog"]:
 
-            if current_checking == "Verilog":
-                cmd = ("iverilog -Wall -Winfloop -Wno-timescale -tnull " + self.completed_verilog_file_path).split(' ')
-            elif current_checking == "Lint":
-                cmd = ['python3','./hardware_agent/examples/VerilogCoder/linter.py', f'{self.completed_verilog_file_path}']
-            else:
-                cmd = ("iverilog -Wall -Winfloop -Wno-timescale -g2012 -s tb -o " + self.test_vpp_file_path + " " + self.verilog_file_path).split(' ')
-
-            print(cmd)
-            # print(" ".join(cmd))
-            try:
-                outputs = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-            except subprocess.CalledProcessError as e:
+            if current_checking == "Verilog" or current_checking == "SystemVerilog" :
+                if current_checking == "Verilog":
+                    cmd = f'dc_shell -x "analyze -f verilog {self.completed_verilog_file_path};  elaborate {self.submodule_name}; check_design; exit"|grep -E "Error|Latch"'
+                else:
+                    cmd = f'iverilog -Wall -Winfloop -Wno-sensitivity-entire-array -Wno-timescale -g2012 -s tb -o {self.test_vpp_file_path} {self.verilog_file_path} 2>&1 | grep -E "error"'
+                try:
+                  outputs = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell = True)
+                except subprocess.CalledProcessError as e:
                 # print('Exception return with error (code {}): {})'.format(e.returncode, e.output))
-                outputs = e.output
+                  outputs = e.output
 
-            outputs = outputs.decode("utf-8").splitlines()
+                outputs = outputs.decode("utf-8").splitlines()    
+            else:
+                outputs = lint(self.completed_verilog_file_path)
+
+    
+            print(current_checking)
+            # print(" ".join(cmd))
+
             print(outputs)
             if len(outputs) != 0:
                 # compile error parameters
@@ -351,10 +380,18 @@ class VerilogToolKits:
 
                 for content in outputs:
                     if not ( re.search(r'sv:\d+', content) or re.search(r'v:\d+', content)):
+                        if re.search(r'Latch', content):
+                           error_msg += "Unwanted Inferered Latch: " + content + "\n"
+                        else:
+                           error_msg += content + "\n"
                         error_msg += content + "\n"
                         continue
                     tmp = content.split(':')
-                    m_error_line = int(tmp[1]) - 1
+                    print(tmp)
+                    if (current_checking == "Verilog"):
+                      m_error_line = int(tmp[2]) - 1
+                    else:
+                      m_error_line = int(tmp[1]) -1
                     # if m_error_line < num_tb_lines:
                     # skip
                     # m_error_line = 0
@@ -362,8 +399,10 @@ class VerilogToolKits:
                     if current_checking == "SystemVerilog" and m_error_line > num_tb_lines :
                         # m_error_line = m_error_line - num_tb_lines
                         compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
-                    elif current_checking == "Verilog" or current_checking == "Lint":
+                    elif current_checking == "Lint":
                         compiled_error[m_error_line] = " ".join(str(x) for x in tmp[2:])
+                    elif current_checking == "Verilog":
+                        compiled_error[m_error_line] = " ".join(str(x) for x in tmp[3:])
                     else:
                         error_msg += content + "\n"
                 print('compiled error = ', compiled_error)
@@ -372,7 +411,7 @@ class VerilogToolKits:
                 if current_checking == "SystemVerilog":
                     commented_module = verilog_file.splitlines()
                 else:
-                    commented_module = completed_verilog.splitlines()
+                    commented_module = merged_verilog.splitlines()
                 module_error_msg = ""
                 error_cnt = 0
                 for m_error_line in compiled_error:
@@ -416,27 +455,69 @@ class VerilogToolKits:
             return "[Compiled Success]\n[Function Check Failed]\n==Tool Output==\n" + outputs + \
                    "==Tool Output End==\n\nThought: input above tool output into waveform_trace_tool as `function_check_output` to debug the failed signals starts with trace_level=2!"
 
+
     def get_input_ports(self, module_content: str):
-
-        module_content = module_content.splitlines()
         input_ports = []
-        for line in module_content:
+    
+        for line in module_content.splitlines():
             line = line.strip()
-            if 'input' not in line:
+            if not line.startswith("input"):
                 continue
-            line = line.replace(",", " ")
-            contents = line.split()
-            for i in range(len(contents)):
-                cur_text = contents[i]
-                i += 1
-                if cur_text == "//":
-                    break
-                if cur_text == 'input':
-                    while contents[i] == 'logic' or not re.match(r'^[a-zA-Z]', contents[i]):
+    
+            line = line.split("//")[0]
+            line = line.replace(",", " ").replace(";", " ")
+            tokens = line.split()
+    
+            i = 0
+            while i < len(tokens):
+                if tokens[i] == "input":
+                    i += 1
+                    # skip type / width
+                    while i < len(tokens) and (
+                        tokens[i] in ("logic", "wire", "signed") or
+                        not re.match(r"^[a-zA-Z_]", tokens[i])
+                    ):
                         i += 1
-                    input_ports.append(contents[i])
+    
+                    # collect ports until hit another keyword
+                    while i < len(tokens) and re.match(r"^[a-zA-Z_]\w*$", tokens[i]):
+                        input_ports.append(tokens[i])
+                        i += 1
+                else:
+                    i += 1
+    
         return input_ports
-
+        
+    def get_output_ports(self, module_content: str):
+        output_ports = []
+    
+        for line in module_content.splitlines():
+            line = line.strip()
+            if not line.startswith("output"):
+                continue
+    
+            line = line.split("//")[0]
+            line = line.replace(",", " ").replace(";", " ")
+            tokens = line.split()
+    
+            i = 0
+            while i < len(tokens):
+                if tokens[i] == "output":
+                    i += 1
+                    while i < len(tokens) and (
+                        tokens[i] in ("logic", "reg", "wire") or
+                        not re.match(r"^[a-zA-Z_]", tokens[i])
+                    ):
+                        i += 1
+    
+                    while i < len(tokens) and re.match(r"^[a-zA-Z_]\w*$", tokens[i]):
+                        output_ports.append(tokens[i])
+                        i += 1
+                else:
+                    i += 1
+    
+        return output_ports
+        
     def waveform_trace_tool(self, function_check_output: Annotated[str, "The output string of function "
                                                               "check from verilog_simulation_tool."],
         trace_level: Annotated[int, "The number of level for wrong signal waveform tracing. "
@@ -457,41 +538,43 @@ class VerilogToolKits:
             print(self.completed_verilog_file_path)
             self.graph_tracer = DebugGraph([self.completed_verilog_file_path])
 
-        try: 
-            d = json.loads(function_check_output)
-            function_check_output = next(iter(d.values()))
-        except:
-            pass
         
         print("Get mismatched signal...")
         # 2. get mismatched signal first
         if check_functionality(function_check_output):
             print("No mismatched signals")
             return "[Waveform Tracer]: No mismatched signals!"
+            
         mismatch_columns, offset = parse_mismatch(test_output=function_check_output)
-
+         
+        output_ports = self.get_output_ports(self.completed_verilog)
+        for output in output_ports:
+            mismatch_columns.append(output)
+        print(mismatch_columns)
         # 3. trace more signals
         print("Trace graph signal...")
         traced_signals_map, signal_level_tracer = self.graph_tracer.get_k_control_signals(target_signals=mismatch_columns,
                                                                                           k=trace_level,
                                                                                           signal_only=True)
 
-        traced_signal_str = "[Signal Traces] Backtrace control signal relations.\n"
-        for bt in range(len(signal_level_tracer) - 1, -1, -1):
-            if bt == len(signal_level_tracer) - 1:
-                for signal_rel in signal_level_tracer[bt]:
-                    traced_signal_str += signal_rel + "\n"
-
-            header_space = "-" * (len(signal_level_tracer) - 1 - bt)
-            for signal_rel in signal_level_tracer[bt]:
-                traced_signal_str += header_space + signal_rel
-                if bt == 0:
-                    traced_signal_str += " (*last output port level)"
-                traced_signal_str += "\n"
-        traced_signal_str += "\n"
+ #       traced_signal_str = "[Signal Traces] Backtrace control signal relations.\n"
+ #       for bt in range(len(signal_level_tracer) - 1, -1, -1):
+ #           if bt == len(signal_level_tracer) - 1:
+ #               for signal_rel in signal_level_tracer[bt]:
+ #                   traced_signal_str += signal_rel + "\n"
+ #
+ #           header_space = "-" * (len(signal_level_tracer) - 1 - bt)
+ #           for signal_rel in signal_level_tracer[bt]:
+ #               traced_signal_str += header_space + signal_rel
+ #               if bt == 0:
+ #                   traced_signal_str += " (*last output port level)"
+ #               traced_signal_str += "\n"
+ #       traced_signal_str += "\n"
 
         # get the waveform tbl str
         all_traced_signals = [str(k) for k in traced_signals_map.keys()]
+        
+        print(all_traced_signals)
 
         # add the input ports to trace
         input_ports = self.get_input_ports(self.completed_verilog)
@@ -513,7 +596,7 @@ class VerilogToolKits:
                              "the mismatched signal waveform and its traced signals. The clock cycle (clk) is 10ns and toggles every 5ns. \n'-' means unknown during simulation. " \
                              "If the '-' is the reason of mismatched signal, please check the reset and assignment block.\n" + \
                              "[Testbench Input Port Signal to Module]: " + ', '.join(input_ports) + \
-                             "\n[Traced Signals]: " + ', '.join(all_traced_signals) + "\n[Table Waveform in binary format]\n" + waveform_table_str
+                             "\n[Traced Signals]: " + ', '.join(all_traced_signals) + "\n[Table Waveform in hexadecimal format]\n" + waveform_table_str
         # 4: get the corresponding verilog code snippets, Todo: Make it another function
         logic_trace_windows = 6
         full_module = True
@@ -579,15 +662,15 @@ if __name__ == '__main__':
     #                                        sequential_signal_waveform="x x x x x 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 1 0 0 0 0 0"))
     # exit(1)
     # define the tools # Test Prob149
-    verilog_tools = VerilogToolKits("/mnt/nas/homes/@LH-NAS.LOCAL/61/ray-1000008/verilog/VerilogCoder/artifacts_test_sha3_high_thoughput/verilog_tmp_dir")
-    paths = verilog_tools.get_work_paths()
-    with open("/mnt/nas/homes/@LH-NAS.LOCAL/61/ray-1000008/verilog/VerilogCoder/hardware_agent/examples/VerilogCoder/opencores/dataset_dumpall/sdram/tb_sdr_ctrl_for_verilogcoder_8bit_core.sv", 'r') as f:
+    verilog_tools = VerilogToolKits("/home/bojyun/VerilogCoder/artifacts_test/verilog_tmp_dir")
+#    paths = verilog_tools.get_work_paths()
+    with open("/home/bojyun/VerilogCoder/artifacts_test/verilog_tmp_dir/reed_solomon_dec.sv", 'r') as f:
         test_benchmark = f.read()
-    f.close()
-    verilog_tools.load_test_bench(task_id="fsm2", spec="", test_bench=test_benchmark)
+#    f.close()
+    verilog_tools.load_test_bench(task_id="reed_solomon_dec", spec="", test_bench=test_benchmark)
     # print(verilog_simulation_tool(completed_verilog=completed_verilog_syntax_error))
     # output = verilog_simulation_tool(completed_verilog=completed_verilog_function_error)
-    with open("/mnt/nas/homes/@LH-NAS.LOCAL/61/ray-1000008/verilog/VerilogCoder/artifacts_test_sha3_high_thoughput/verilog_tmp_dir/test.v", 'r') as f:
+    with open("/home/bojyun/VerilogCoder/artifacts_test/verilog_tmp_dir/test.v", 'r') as f:
         completed_verilog_code = f.read()
     f.close()
     output = verilog_tools.verilog_simulation_tool(completed_verilog=completed_verilog_code)
