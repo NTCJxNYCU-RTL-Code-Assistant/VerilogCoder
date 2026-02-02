@@ -1,189 +1,112 @@
-1.  Mandatory classification  
-   •  This module is classified as: **Mixed combinational + sequential**  
-   (The design contains edge-triggered registers driven by `clk` as well as purely combinational logic.)
+### 1. Module Overview
 
-────────────────────────────────────────────────────────────────────────
-2.  Module overview  
-   •  Exact RTL name: `padder_dut`  
-   •  Purpose (exactly what the code does, without guessing external standards):  
-     –  Collect 32-bit input words coming from an upstream “user” interface,  
-     –  Pack those words into a 576-bit shift register called `out` (18 words × 32 bits),  
-     –  Insert one final “padding” word when the upstream source asserts `is_last`,  
-     –  Continue filling the 576-bit register with all-zero words until it is full,  
-     –  Assert `out_ready`/`buffer_full` when the 576-bit register now contains 18 words,  
-     –  Reset its internal counters when a downstream “f_permutation” block acknowledges the data by raising `f_ack`.  
-   •  Overall function:  
-     Given a stream of up to 18 input words, the module produces one 576-bit block.  
-     After the final upstream word it appends zero words (and sets one single marker bit) until exactly 18 words have been shifted in.  
-   •  Role inside a larger system: The RTL comments mention a “user” module on the upstream side and an “f_permutation” module on the downstream side, but their detailed behaviour is **unspecified by the RTL**.
+- **Module Name**: `padder_dut`
+- **Classification**: Sequential (clocked)
+- **Overall Purpose**: This module interfaces with a user data provider and a downstream module that performs some kind of permutation. It accumulates incoming data into a fixed-size buffer (`out`), indicates when the buffer is full, and accepts or processes incoming data based on specific control signals.
+- **Exact Function**: The module constructs a 576-bit output (`out`) by accepting 32-bit chunks of input (`in`) as long as the user is sending more data. It adjusts behavior when the `is_last` signal indicates no more data will follow. `out` gets filled according to the current state, allowing a downstream `f_permutation` module to process the completed buffer.
+- **Role within a Larger System**: The specific role is unspecified by the RTL but it appears to interact with a user module providing data and a `f_permutation` module processing the accumulated data.
 
-────────────────────────────────────────────────────────────────────────
-3.  Parameters  
-   This module has no Verilog parameters.
+### 2. Parameters
 
-────────────────────────────────────────────────────────────────────────
-4.  Ports (exact order in the source)
+> This module has no parameters.
 
-•  input  `clk`  
-   –  Clock domain for every sequential block.  
-   –  All registers update on the rising edge.
+### 3. Ports (Exact and Ordered)
 
-•  input  `reset`  
-   –  Asynchronous behaviour not implied; used synchronously inside every always block.  
-   –  When `reset == 1` every register ( `out`, `i`, `state`, `done` ) is cleared to zero.
+1. **`clk`**
+   - Direction: Input
+   - Bit-width: 1
+   - Role: Clock signal for synchronizing edge-triggered updates.
 
-•  input  [31:0] `in`  
-   –  Current 32-bit data word supplied by the upstream user.  
-   –  Level-sensitive combinational signal.
+2. **`reset`**
+   - Direction: Input
+   - Bit-width: 1
+   - Role: Synchronous reset, initializes internal state and registers.
 
-•  input  `in_ready`  
-   –  Indicates that `in` currently holds a valid word.  
-   –  Level-sensitive.
+3. **`in`**
+   - Direction: Input
+   - Bit-width: 32
+   - Role: Provides data chunks to be added to the output buffer.
+   - Timing: Level-sensitive to changes per clock cycle if accepted.
 
-•  input  `is_last`  
-   –  When asserted once, it means the present word on `in` is the *final* user word.  
-   –  That single assertion moves the internal register `state` from 0 to 1 permanently.
+4. **`in_ready`**
+   - Direction: Input
+   - Bit-width: 1
+   - Role: Signals that the `in` data is valid and can be processed.
 
-•  input  [1:0] `byte_num`  
-   –  Forwarded without modification to sub-module `padder1_dut`; exact semantics undefined inside this RTL.  
-   –  Level-sensitive.
+5. **`is_last`**
+   - Direction: Input
+   - Bit-width: 1
+   - Role: Indicates the user will not send any more data after current pieces.
 
-•  output `buffer_full`  
-   –  1 bit. Equals internal signal `i[17]`.  
-   –  High when 18 words have been accepted and stored.  
-   –  Purely combinational with respect to `i`.
+6. **`byte_num`**
+   - Direction: Input
+   - Bit-width: 2
+   - Role: Used by the `padder1` submodule; its exact role is not specified beyond this.
 
-•  output reg [575:0] `out`  
-   –  Shift register that holds the 576-bit block.  
-   –  Bit layout after an *update* clock edge:  
-       out[575 : 544] = oldest word, …, out[31 : 0] = newest word (`v1`).  
-   –  Updated only when `update == 1` on the next rising edge of `clk`.
+7. **`buffer_full`**
+   - Direction: Output
+   - Bit-width: 1
+   - Role: Indicates when the output buffer is full (to the "user" module).
+   - Timing: Level-sensitive, updates after internal buffer state changes.
 
-•  output `out_ready`  
-   –  Wire-alias of `buffer_full`. Goes high during the same cycle as `buffer_full`.
+8. **`out`**
+   - Direction: Output
+   - Bit-width: 576
+   - Role: The accumulated buffer output sent to the `f_permutation` module.
+   - Timing: Register-ed output, updates on clock with new data intake until the buffer is full.
 
-•  input  `f_ack`  
-   –  Down-stream acknowledgement.  
-   –  When high for one cycle it clears the length register `i` and therefore drops `buffer_full/out_ready` low in the same cycle.
+9. **`out_ready`**
+   - Direction: Output
+   - Bit-width: 1
+   - Role: Indicates readiness of the `out` buffer for processing.
+   - Timing: Level-sensitive, equivalent to `buffer_full`.
 
-Timing semantics summary  
-   –  All outputs driven by registers (`out`) update on the next rising edge after their enabling conditions are true.  
-   –  `buffer_full` and `out_ready` are pure combinational functions of the *current* value of register `i`.
+10. **`f_ack`**
+    - Direction: Input
+    - Bit-width: 1
+    - Role: Acknowledgment from the `f_permutation` module, possibly indicating readiness for new data processing.
 
-────────────────────────────────────────────────────────────────────────
-5.  Detailed behavioural specification
+### 4. Behavioral Specification
 
-Notation  
-   •  Let `word_cnt` be the number of 32-bit words stored so far, encoded as:
-        word_cnt = position of the most-significant **0** in `i` (initially 0).  
-     Operationally `i` uses a “running-ones” pattern:
-        i = 000…000 after reset  
-        i = 000…001 after 1 update  
-        i = 000…011 after 2 updates  
-        …  
-        i[17] == 1 means 18 updates have occurred.
+- **State Behavior**: There are operational states based on the `state` register which affects how inputs are accepted.
+- When **`reset`** is high, internal registers (`out`, `i`, `state`, `done`) are reset to zero.
+- **Data Accumulation** during active operation updates `out` with new `v1` data chunks when conditions dictated by control signals (`accept` and `update`) are met.
+- Transitions to a terminal state when `is_last` is set, altering behavior to avoid further data acceptance.
+- The `padder1_dut` submodule is used to pre-process input data (`in`) when `is_last` is asserted.
+- **Output management** involves shifting new 32-bit data into the least significant position of the buffered `out` value until the buffer is full. The `out_ready` signal indicates the buffer's readiness.
+  
+### 5. Timing and Update Semantics
 
-5.1 Combinational control signals  
-   accept = (~state) & in_ready & (~buffer_full)  
-     –  High when the module may consume a *user* word.  
-   update = (accept | (state & ~buffer_full)) & ~done  
-     –  High when either a real user word is accepted *or* padding is required,  
-       provided the final block has not yet been delivered (`done == 0`).
+- The module operates based on the rising clock edge, with synchronous reset.
+- State and output updates happen strictly at the clock edges.
+- Output `out` and internal logic update synchronously with the `clk` signal based on control and state signals (`f_ack`, `state`, `is_last`, etc.).
+- There is no continuous output evaluation, strictly relying on clock-driven events for updates.
 
-5.2 Data word (`v1`) selection – combinational  
-   if (state == 1)                   // all user data already seen  
-        v1 = 32’h0000_0000;  
-        v1[7] |= i[16];              // insert single marker bit when storing word #18  
-   else if (is_last == 0)            // normal streaming word  
-        v1 = in;  
-   else                              // this cycle carries the last user word  
-        v1 = v0;                     // v0 comes from sub-module padder1_dut  
-        v1[7] |= i[16];              // also set marker on the 18th word
+### 6. Internal Logic Discussion
 
-5.3 Sequential updates (all on posedge clk)
+- `v1` calculation responds to input conditions:
+  - Defaults to zero with modified bits based on the buffer filling status when in terminal `state`.
+  - Takes direct value of `in` or processed value `v0` from `padder1_dut` based on the `is_last` condition and other states.
+- Data shifting logic ensures 32-bit data from `v1` accumulates into the 576-bit `out` buffer as per signal conditioning logic.
 
-1. 576-bit shift register  
-      if (reset)        out <= 0;  
-      else if (update)  out <= { out[575-32 : 0], v1 };
+### A. State / Mode Summary
 
-2. Length / occupancy register `i`  
-      if (reset)                 i <= 18’h0;  
-      else if (f_ack | update)   i <= ({ i[16:0], 1’b1 } ) & {18{ ~f_ack }};
+> "This module has operational states determined by the `state` and `done` registers."
 
-   •  Effect:  
-     –  On each `update` cycle (when `f_ack == 0`) the register left-shifts and inserts a 1, thereby increasing `word_cnt` by one.  
-     –  When `f_ack == 1` every bit of `i` is ANDed with zero, instantly clearing the register.
+### B. Timing / Propagation Example
 
-3. Stream-state flag  
-      if (reset)   state <= 0;  
-      else if (is_last) state <= 1;   // sticky once asserted
+- **Cycle-by-Cycle Example**:
+  - On the rising edge of `clk` with `reset` low, if `accept` is true, `out` shifts to incorporate new `v1` data.
+  - If `is_last` becomes high, `state` moves to prevent new data acceptance post-buffer filling.
+  - When `f_ack` is received, combination logic resets buffer tracking variable `i`.
 
-4. Done flag  
-      if (reset)                 done <= 0;  
-      else if (state & buffer_full) done <= 1;
+### C. Complete Behavioral Walkthrough
 
-   •  After `done` rises, `update` is permanently masked, stopping further writes until reset.
-
-────────────────────────────────────────────────────────────────────────
-6.  Timing and update semantics
-
-•  All storage elements react only to the positive edge of `clk`.  
-•  `buffer_full`/`out_ready` are combinational functions of a registered value (`i`) and therefore change within the same cycle in which `i` is updated.  
-•  The shift register `out` is valid *after* the clock edge where the 18th word is loaded; downstream logic must wait for `out_ready == 1`.
-
-────────────────────────────────────────────────────────────────────────
-A.  State / mode summary  
-   – Internal FSM has two stable states represented by register `state`  
-     0 = still accepting user data  
-     1 = user finished; only padding words may be generated  
-   – The module is otherwise stateless; no additional modes exist.
-
-────────────────────────────────────────────────────────────────────────
-B.  Timing / propagation example (cycle-by-cycle)
-
-Assume `reset` de-asserted at time t₀.
-
-t₁:  in_ready=1, is_last=0, state=0, buffer_full=0 → accept=1 → update=1  
-     • At the clock edge the first user word shifts into `out[31:0]`.  
-     • `i` becomes 000…001.
-
-… (similar updates) …
-
-t₁₇: word 17 arrives with is_last=1 → v1 selected from `padder1_dut`.  
-     update=1 inserts that word.  
-     `i` after the edge = 0111…111 (i[16]=1, i[17]=0).
-
-t₁₈: state is now 1 (because is_last had been asserted earlier).  
-     accept=0 but (state & ~buffer_full)=1 → update=1.  
-     v1 = 0x0000_0000 with bit 7 forced to 1 (because i[16] was 1).  
-     After the edge: i[17] becomes 1 → buffer_full=out_ready=1.
-
-t₁₉: Downstream raises f_ack=1 (one cycle pulse).  
-     • `i` is cleared to 0 during this clock edge, dropping buffer_full low.  
-     • New user block can begin.
-
-────────────────────────────────────────────────────────────────────────
-C.  Complete behavioural walkthrough
-
-1.  After reset the module is empty (`i=0`, `buffer_full=0`, `state=0`).  
-2.  While `state==0` it consumes each user word during any cycle in which  
-      in_ready = 1 and buffer_full = 0.  
-   Each consumed word  
-      – is shifted into the low 32 bits of `out`,  
-      – increments the occupancy register `i`,  
-      – may be flagged as “last” by asserting `is_last`.  
-3.  The first (and only the first) cycle with `is_last==1` sets `state` to 1.  
-4.  From then on the module ignores `in_ready` and instead generates padding words (all-zero, with an optional single marker bit in position `v1[7]`) until exactly 18 words are present.  
-5.  When the 18th word enters, `buffer_full` and `out_ready` rise,  
-   indicating that `out` now contains a complete 576-bit block.  
-6.  The downstream block must respond with a single-cycle `f_ack=1`.  
-   That pulse synchronously clears the occupancy register (`i`), drops `buffer_full/out_ready`, and allows the next block to be collected.  
-7.  Once a full block has been delivered after `state==1`, flag `done` rises, disabling further `update` activity until the whole module is reset.
-
-────────────────────────────────────────────────────────────────────────
-This description contains every externally observable behaviour, timing
-relationship, and data mapping required to recreate an RTL block that is
-cycle-accurate and functionally identical to the provided Verilog.
+- **Initialization**: On reset, all internal variables are cleared.
+- **Data Processing**: Data is taken from `in` per 32 bits, potentially passed through `padder1_dut` based on `is_last`.
+- **Buffer Filling**: `out` is filled as `v1` values are serially accepted and left-shifted in `out`, up to 576 bits.
+- **State Management**: `state` and `done` determine input acceptance or transition to a halt for output-ready state.
+- **Acknowledgment Handling**: Upon `f_ack`, reset behavior contingent on buffer content is managed via control logic in `i`.
 
  ### The following code is incomplete. Please only complete the missing parts and do not modify the existing implementation. 
 

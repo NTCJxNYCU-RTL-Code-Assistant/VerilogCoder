@@ -142,6 +142,7 @@ class VerilogToolKits:
         self.spec = "" # store the spec
         self.graph_tracer = None
         self.submodule_name = ""
+        self.function_check_output = ""
 
     def get_work_paths(self):
         return {'workdir': self.workdir,
@@ -156,9 +157,9 @@ class VerilogToolKits:
         self.cur_graph_verilog = ""
         self.completed_verilog = ""
         self.graph_tracer = None
+        self.function_check_output = ""
 
     def load_test_bench(self, task_id: str, spec: str, top_module: str,test_bench:str, write_file: bool=False):
-        print("fuck this project  " , task_id)
         self.submodule_name = task_id + "_dut"
         self.spec = spec
         self.test_bench = test_bench
@@ -445,6 +446,9 @@ class VerilogToolKits:
         cmds = ("vvp " + self.test_vpp_file_path).split(' ')
         print(" ".join(cmds))
         outputs = subprocess.check_output(cmds, stderr=subprocess.DEVNULL).decode("utf-8")
+        
+        self.function_check_output =  outputs
+        
 
         if os.path.exists(os.getcwd() + "/wave.vcd"):
             shutil.move(os.getcwd() + "/wave.vcd", self.wave_vcd_file_path)
@@ -453,7 +457,7 @@ class VerilogToolKits:
             return "[Compiled Success]\n[Function Check Success]\n" + outputs
         else:
             return "[Compiled Success]\n[Function Check Failed]\n==Tool Output==\n" + outputs + \
-                   "==Tool Output End==\n\nThought: input above tool output into waveform_trace_tool as `function_check_output` to debug the failed signals starts with trace_level=2!"
+                   "==Tool Output End==\n\nThought: input above tool output into waveform_trace_tool to debug the failed signals starts with trace_level=2!"
 
 
     def get_input_ports(self, module_content: str):
@@ -518,10 +522,7 @@ class VerilogToolKits:
     
         return output_ports
         
-    def waveform_trace_tool(self, function_check_output: Annotated[str, "The output string of function "
-                                                              "check from verilog_simulation_tool."],
-        trace_level: Annotated[int, "The number of level for wrong signal waveform tracing. "
-                                                    "It should be larger than 1."]) -> str:
+    def waveform_trace_tool(self, trace_level: Annotated[int, "The number of level for wrong signal waveform tracing. It should be larger than 1."]) -> str:
         if not os.path.exists(self.wave_vcd_file_path):
             return "[Error] wave.vcd is not found! Please complete the verilog code and run the verilog_simulation_tool " \
                    "first!"
@@ -538,14 +539,13 @@ class VerilogToolKits:
             print(self.completed_verilog_file_path)
             self.graph_tracer = DebugGraph([self.completed_verilog_file_path])
 
-        
         print("Get mismatched signal...")
         # 2. get mismatched signal first
-        if check_functionality(function_check_output):
+        if check_functionality(self.function_check_output):
             print("No mismatched signals")
             return "[Waveform Tracer]: No mismatched signals!"
             
-        mismatch_columns, offset = parse_mismatch(test_output=function_check_output)
+        mismatch_columns, offset = parse_mismatch(test_output=self.function_check_output)
          
         output_ports = self.get_output_ports(self.completed_verilog)
         for output in output_ports:
@@ -662,17 +662,19 @@ if __name__ == '__main__':
     #                                        sequential_signal_waveform="x x x x x 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 1 0 0 0 0 0"))
     # exit(1)
     # define the tools # Test Prob149
-    verilog_tools = VerilogToolKits("/home/bojyun/VerilogCoder/artifacts_test/verilog_tmp_dir")
+    verilog_tools = VerilogToolKits("/home/bojyun/VerilogCoder2/artifacts_test/verilog_tmp_dir")
 #    paths = verilog_tools.get_work_paths()
-    with open("/home/bojyun/VerilogCoder/artifacts_test/verilog_tmp_dir/reed_solomon_dec.sv", 'r') as f:
+    with open("/home/bojyun/VerilogCoder2/artifacts_test/verilog_tmp_dir/f_permutation.sv", 'r') as f:
         test_benchmark = f.read()
+    with open("/home/bojyun/VerilogCoder2/artifacts_test/verilog_tmp_dir/top.v", 'r') as f:
+        top = f.read()
 #    f.close()
-    verilog_tools.load_test_bench(task_id="reed_solomon_dec", spec="", test_bench=test_benchmark)
+    verilog_tools.load_test_bench(task_id="f_permutation", spec="", top_module=top ,test_bench=test_benchmark)
     # print(verilog_simulation_tool(completed_verilog=completed_verilog_syntax_error))
     # output = verilog_simulation_tool(completed_verilog=completed_verilog_function_error)
-    with open("/home/bojyun/VerilogCoder/artifacts_test/verilog_tmp_dir/test.v", 'r') as f:
+    with open("/home/bojyun/VerilogCoder2/artifacts_test/verilog_tmp_dir/write.v", 'r') as f:
         completed_verilog_code = f.read()
     f.close()
     output = verilog_tools.verilog_simulation_tool(completed_verilog=completed_verilog_code)
     print(output)
-    print(verilog_tools.waveform_trace_tool(function_check_output=output, trace_level=2))
+    print(verilog_tools.waveform_trace_tool(trace_level=2))

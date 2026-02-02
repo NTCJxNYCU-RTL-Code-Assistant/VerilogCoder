@@ -229,3 +229,12 @@ hardware_agent/examples/fv_backup/autogen/oai/client_with_secrets.py
 artifacts*/
 iverilog/
 OAI_CONFIG_LIST
+
+cksum_dir/
+*.mr
+*.pvl
+*.syn
+*.svf
+
+parser.out
+parsetab.py

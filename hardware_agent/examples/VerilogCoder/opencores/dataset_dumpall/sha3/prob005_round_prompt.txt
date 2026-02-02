@@ -1,141 +1,89 @@
-Module name: round_dut
-Classification: Purely combinational
+## 1. Module Overview
 
-1. Module Overview
-This module implements a completely combinational, 1600-bit, one-round permutation that is structurally divided into the five classical sub-steps called “theta”, “rho”, “pi”, “chi”, and “iota” (the names are present in the comments and in the internal signal labels).  
-Functionally it realises the following mapping:
+* **Exact module name**: `round_dut`
+* **Classification**: Purely combinational
+* **Overall purpose**: The module performs a transformation based on the Keccak-f[1600] permutation round, implementing steps like theta, rho, pi, chi, and iota which are part of a cryptographic round function.
+* **Exact function**: The module computes a single round transformation on a 1600-bit input block, using a 64-bit round constant, and produces a 1600-bit output.
+* **Role within a larger system**: Unspecified by the RTL; however, it may be part of a larger cryptographic hash function or cryptographic primitive.
 
-out = ι( χ( π( ρ( θ( in ) ) ), round_const )
+## 2. Parameters
 
-where ι, χ, π, ρ, θ are the operations defined verbatim below.  
-The RTL contains no clock, no reset, and no storage elements; therefore the result appears after a pure combinational propagation delay once the inputs are stable.  
-The role of the module inside a larger system is unspecified by the RTL.
+*This module has no parameters.*
 
-2. Parameters
-This module has no parameters.
+## 3. Ports (Exact and Ordered)
 
-3. Ports (exact declaration order)  
-• input  [1599:0] in  
-  – 1600-bit, level-sensitive data word that is to be permuted.  
+1. **Input port:**
+   * **Direction**: Input
+   * **Exact name**: `in`
+   * **Bit-width and index range**: [1599:0]
+   * **Functional role**: The 1600-bit wide input data block to be transformed by the round function.
+   * **Timing semantics**: Level-sensitive. The output changes once inputs change, after propagation delay.
 
-• input  [63:0]   round_const  
-  – 64-bit, level-sensitive round constant used solely by the iota step. Only the bits
-    0, 1, 3, 7, 15, 31, 63 of this vector are consulted; all other bits are ignored.  
+2. **Input port:**
+   * **Direction**: Input
+   * **Exact name**: `round_const`
+   * **Bit-width and index range**: [63:0]
+   * **Functional role**: The 64-bit round constant used in the iota step of the round transformation.
+   * **Timing semantics**: Level-sensitive. The output changes once inputs change, after propagation delay.
 
-• output [1599:0] out  
-  – 1600-bit combinational result. Its value is a deterministic function of the
-    current ‘in’ and ‘round_const’ inputs and changes whenever either input changes,
-    after the inherent gate-level propagation delay.
+3. **Output port:**
+   * **Direction**: Output
+   * **Exact name**: `out`
+   * **Bit-width and index range**: [1599:0]
+   * **Functional role**: The 1600-bit wide output data block that results from the round transformation.
+   * **Timing semantics**: Level-sensitive. The output updates to reflect the current inputs after propagation delay.
 
-4. Behavioural Specification (pure data-flow)
+## 4. Behavioral Specification
 
-Internal notation  
-• All arithmetic on x or y coordinates is performed modulo 5.  
-• rot(x,n) = 64-bit left rotation of x by n positions (i.e. bit i of the result
-  equals bit (i−n)mod64 of x).  
-• Lane index formula  
-  lane_idx(x,y) = 5·y + x  
-  base(x,y)     = 64·lane_idx(x,y)           // least-significant bit number  
-  A[x][y]       = in [ base(x,y)+63 : base(x,y) ]   (64 bits)  
+### Combinational description:
 
-Step-by-step algorithm
+The module `round_dut` provides a mathematical transformation of its inputs without maintaining any internal state. The transformation is governed by a sequence of bitwise operations organized into phases (commonly seen in cryptographic functions):
 
-Step 0 – Input unpacking  
-For every (x,y) ∈ {0..4}²  
- A[x][y] = in [ base(x,y)+63 : base(x,y) ]    (64-bit slice).
+1. **Theta step**: Combine columns of the state using XOR operations to derive intermediate values `b`. Then, produce the `c` values by combining these columns and rotations of adjacent columns.
 
-Step 1 – theta  
-Column parities:  
- B[x] = A[x][0] ⊕ A[x][1] ⊕ A[x][2] ⊕ A[x][3] ⊕ A[x][4]
+2. **Rho step**: Apply different rotation amounts to each element of `c` in a structured pattern to form `d`.
 
-Lane update:  
- C[x][y] = A[x][y] ⊕ B[x−1] ⊕ rot(B[x+1],1)
+3. **Pi step**: Permute the contents of `d` to form `e` based on a fixed pattern.
 
-Step 2 – rho  
-D[x][y] = rot( C[x][y], ρ_off(x,y) )  
-with the constant rotation offsets
+4. **Chi step**: Non-linearly mix the rows of `e` to produce `f` using NOT, AND, and XOR operations across elements.
 
- ρ_off(x,y) (decimal):  
- (0,0)=0   (1,0)=1   (2,0)=62  (3,0)=28  (4,0)=27  
- (0,1)=36  (1,1)=44  (2,1)=6   (3,1)=55  (4,1)=20  
- (0,2)=3   (1,2)=10  (2,2)=43  (3,2)=25  (4,2)=39  
- (0,3)=41  (1,3)=45  (2,3)=15  (3,3)=21  (4,3)=8  
- (0,4)=18  (1,4)=2   (2,4)=61  (3,4)=56  (4,4)=14
+5. **Iota step**: Incorporate the `round_const` into the result of the chi step for a single specific cell of the resultant array `g`.
 
-Step 3 – pi  
-E[0][0]=D[0][0]   E[0][1]=D[3][0]   E[0][2]=D[1][0]   E[0][3]=D[4][0]   E[0][4]=D[2][0]  
-E[1][0]=D[1][1]   E[1][1]=D[4][1]   E[1][2]=D[2][1]   E[1][3]=D[0][1]   E[1][4]=D[3][1]  
-E[2][0]=D[2][2]   E[2][1]=D[0][2]   E[2][2]=D[3][2]   E[2][3]=D[1][2]   E[2][4]=D[4][2]  
-E[3][0]=D[3][3]   E[3][1]=D[1][3]   E[3][2]=D[4][3]   E[3][3]=D[2][3]   E[3][4]=D[0][3]  
-E[4][0]=D[4][4]   E[4][1]=D[2][4]   E[4][2]=D[0][4]   E[4][3]=D[3][4]   E[4][4]=D[1][4]
+Finally, the entire transformed block is reconstituted from `g` into the sequential bits of the output, `out`.
 
-Step 4 – chi  
-For every (x,y):  
- F[x][y] = E[x][y] ⊕ ( ¬E[x+1][y]  ∧  E[x+2][y] )
+## 5. Timing and Update Semantics
 
-Step 5 – iota  
-G[0][0] is F[0][0] with selective bit-wise XOR of the round constant:  
- for k ∈ {0,1,3,7,15,31,63}:   bit k of G[0][0] = bit k of F[0][0] ⊕ round_const[k]  
- all other bits of lane (0,0) are unchanged.  
-For every other (x,y) ≠ (0,0):  
- G[x][y] = F[x][y]
+* There is no clock and no reset.
+* There are no registers or latches.
+* The output signal `out` is a continuous combinational function of the current inputs `in` and `round_const`.
+* The output `out` updates after a combinational propagation delay whenever any input changes.
 
-Step 6 – Output packing  
-For every (x,y):  
- out [ base(x,y)+63 : base(x,y) ] = G[x][y]
+## 6. Internal Logic Discussion
 
-No other logic exists.
+The transformations are described mathematically using intermediate wires `a`, `b`, `c`, `d`, `e`, `f`, and `g` to hold state from each functional phase. The logic partitions the 1600-bit input and output into 5x5 blocks of 64 bits, conducting logical operations, shifts, and permutations for the cryptographic transformation.
 
-5. Timing and Update Semantics
-• There is no clock and no reset.  
-• All outputs are continuous combinational functions of the current inputs.  
-• Whenever any bit of ‘in’ or ‘round_const’ changes at time t, every bit of ‘out’
-  settles to its new value after the module’s combinational propagation delay.
+### A. State / Mode Summary
 
-6. Internal Logic Discussion
-Only simple bit-wise operators (XOR, AND, NOT) and fixed 64-bit rotations are used.
-All modulo-5 coordinate arithmetic is performed implicitly through the ‘add_1’,
-‘add_2’, and ‘sub_1’ macros as:
+*This module is stateless and has no operational modes.*
 
- add_1(x) = (x+1) mod 5  
- add_2(x) = (x+2) mod 5  
- sub_1(x) = (x+4) mod 5
+### B. Timing / Propagation Example
 
-Rotations are implemented with the helper macros  
- rot_up(word,n)  ≡  rot(word,n)  
- rot_up_1(word)  ≡  rot(word,1)
+- When the 1600-bit input `in` or the 64-bit `round_const` changes at any time `t`, the computed `out` reflects these changes after the combinational logic delay inherent in the transformation steps (theta, rho, pi, chi, iota).
 
-A re-implementation must guarantee that the rotation direction and exact offsets
-match the table given in Step 2.
+### C. Complete Behavioral Walkthrough
 
-A. State / Mode Summary
-This module is stateless and has no operational modes.
+1. **Input evaluation**: The module reads inputs `in` (1600 bits) and `round_const` (64 bits).
+   
+2. **Intermediate transformation**:
+   - **Mapping and Processing**: The 1600-bit input is divided into 25 chunks of 64 bits.
+   - **Theta**: For each column across the data slices, XOR operations calculate column parities `b` which are used along with rotations to modify each column slice in `c`.
+   - **Rho and Pi**: Apply rotations to derive `d`, then shuffle the results to form `e`.
+   - **Chi**: Apply non-linear mixing to form `f`.
+   - **Iota**: The round constant is XORed into a specific location in `f` to form `g`.
 
-B. Timing / Propagation Example
-Suppose bit 0 of input ‘in’ toggles at simulation time t0.  
-Because the module is purely combinational, certain internal XOR and rotation
-results will change immediately, and eventually every affected bit of ‘out’ will
-reflect the new steady-state value at time t0 + Δ, where Δ is the total
-propagation delay through the longest combinational path. No discrete sampling
-events occur.
+3. **Output assembly**: The final 1600-bit `out` is reconstructed from the `g` array.
 
-C. Complete Behavioural Walk-through
-1. The 1600-bit input word is sliced into 25 contiguous 64-bit lanes according to
-   base(x,y)=64·(5·y+x).  
-2. Column parities are formed (theta), and each lane is updated with two rotated
-   parity words.  
-3. Each lane is then individually rotated by its fixed ρ offset (rho).  
-4. Lanes are rearranged according to the static π permutation (pi).  
-5. For every row of five lanes, the χ non-linear step updates each lane with a
-   function of its two neighbours (chi).  
-6. Finally, seven selected bits of lane (0,0) are XORed with the corresponding
-   bits of ‘round_const’ (iota); all other lanes are left untouched.  
-7. The 25 transformed lanes are re-concatenated, least-significant lane first,
-   producing the 1600-bit ‘out’ vector.
-
-Because no storage elements exist, the above sequence is conceptual; in actual
-hardware all equations are evaluated in parallel, and only the final ‘out’
-vector is externally visible.
+This walkthrough enables reproduction of the module's behavior without guessing, strictly based on the RTL logic.
 
  ### The following code is incomplete. Please only complete the missing parts and do not modify the existing implementation. 
 

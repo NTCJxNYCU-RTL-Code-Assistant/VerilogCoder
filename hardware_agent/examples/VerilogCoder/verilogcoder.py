@@ -137,12 +137,8 @@ class VerilogCoder:
                 completed_verilog: Annotated[str, "The completed verilog module code implementation"]) -> str:
             return self.verilog_tools.verilog_simulation_tool(completed_verilog=completed_verilog)
 
-        def waveform_trace_tool(function_check_output: Annotated[str, "The output string of function "
-                                                                      "check from verilog_simulation_tool."],
-                                trace_level: Annotated[int, "The number of level for wrong signal waveform tracing. "
-                                                            "It should be larger than 1."]) -> str:
-            return self.verilog_tools.waveform_trace_tool(function_check_output=function_check_output,
-                                                     trace_level=trace_level)
+        def waveform_trace_tool(trace_level: Annotated[int, "The number of level for wrong signal waveform tracing. It should be larger than 1."]) -> str:
+            return self.verilog_tools.waveform_trace_tool(trace_level=trace_level)
 
         # Not used for now
         '''

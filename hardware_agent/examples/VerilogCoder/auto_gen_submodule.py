@@ -150,7 +150,7 @@ def create_refmodule(folder_path, prob_idx, RefModule, submodule):
     submodule_name = submodule.replace("_ref", "_dut")
     dut_text = RefModule.replace("_ref", "_dut").replace("RefModule", "TopModule")
     dut, rest = split_module_and_rest(dut_text, submodule_name)
-    top, _ = split_module_and_rest(dut_text, "TopModule")
+    
 
     filename = f"prob{prob_idx:03d}_{submodule}.sv"
     path = os.path.join(folder_path, filename)
@@ -161,7 +161,7 @@ def create_refmodule(folder_path, prob_idx, RefModule, submodule):
     filename = f"prob{prob_idx:03d}_{submodule_name}_top.sv"
     path = os.path.join(folder_path, filename)
     path = Path(path)
-    path.write_text(top, encoding="utf-8")
+    path.write_text(rest, encoding="utf-8")
 
     return dut
 
