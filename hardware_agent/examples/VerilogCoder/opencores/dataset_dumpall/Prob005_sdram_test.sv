@@ -243,7 +243,7 @@ stats stats1;
 
 //link:
 // 3) Instances
-TopModule #(.SDR_DW(8),.SDR_BW(1)) dut (
+TopModule #(.SDR_DW(8),.SDR_BW(1)) top_module1 (
   .clk(clk),
   .pad_clk(pad_clk),
   .reset_n(reset_n),
@@ -302,7 +302,7 @@ mt48lc8m8a2_dut #(.data_bits(8)) u_sdram8_dut (
           .Dqm                (sdr_dqm_dut            )
 );
 
-RefModule #(.SDR_DW(8),.SDR_BW(1)) ref_mdl (
+RefModule #(.SDR_DW(8),.SDR_BW(1)) good1 (
   .clk(clk),
   .pad_clk(pad_clk),
   .reset_n(reset_n),

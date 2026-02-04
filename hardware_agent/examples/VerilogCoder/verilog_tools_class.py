@@ -17,7 +17,7 @@ from io import StringIO
 
 # utilities
 def check_functionality(vvp_output:str):
-    print(vvp_output)
+    #print(vvp_output)
     lines = vvp_output.splitlines()
     mismatches = None
     for line in lines:
@@ -457,7 +457,7 @@ class VerilogToolKits:
             return "[Compiled Success]\n[Function Check Success]\n" + outputs
         else:
             return "[Compiled Success]\n[Function Check Failed]\n==Tool Output==\n" + outputs + \
-                   "==Tool Output End==\n\nThought: input above tool output into waveform_trace_tool to debug the failed signals starts with trace_level=2!"
+                   "==Tool Output End==\n\nThought: use waveform_trace_tool to debug the failed signals starts with trace_level=2!"
 
 
     def get_input_ports(self, module_content: str):
@@ -553,9 +553,7 @@ class VerilogToolKits:
         print(mismatch_columns)
         # 3. trace more signals
         print("Trace graph signal...")
-        traced_signals_map, signal_level_tracer = self.graph_tracer.get_k_control_signals(target_signals=mismatch_columns,
-                                                                                          k=trace_level,
-                                                                                          signal_only=True)
+        traced_signals_map, signal_level_tracer = self.graph_tracer.get_k_control_signals(target_signals=mismatch_columns, k=trace_level, signal_only=True)
 
  #       traced_signal_str = "[Signal Traces] Backtrace control signal relations.\n"
  #       for bt in range(len(signal_level_tracer) - 1, -1, -1):
@@ -587,10 +585,7 @@ class VerilogToolKits:
 
         # print("all traced signals = ", all_traced_signals)
         print("Get table waveform...")
-        waveform_table_str = get_tabular(method='dataframe', vcd_path=self.wave_vcd_file_path,
-                                         mismatch_columns=all_traced_signals,
-                                         offset=offset,
-                                         ori_mismatch_columns=mismatch_columns)
+        waveform_table_str = get_tabular(method='dataframe', vcd_path=self.wave_vcd_file_path, mismatch_columns=all_traced_signals, offset=offset, ori_mismatch_columns=mismatch_columns)
 
         waveform_table_str = "[Siganl Waveform]: <signal>_tb is the given testbench signal and can not be changed! <signal>_ref is the golden, and <signal>_dut is the generated verilog file waveform. Check " \
                              "the mismatched signal waveform and its traced signals. The clock cycle (clk) is 10ns and toggles every 5ns. \n'-' means unknown during simulation. " \

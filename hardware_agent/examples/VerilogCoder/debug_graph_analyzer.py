@@ -66,5 +66,5 @@ class DebugGraph:
         return control_signals, signal_level_tracer
 
 if __name__ == '__main__':
-    debug_graph_tracer = DebugGraph(["/home/scratch.chiatungh_nvresearch/hardware-agent-marco/hardware_agent/examples/verilog_testcases/fsm_serialdata.v"])
-    print(debug_graph_tracer.get_k_control_signals(['out_byte', 'done'], k=3, signal_only=True))
+    debug_graph_tracer = DebugGraph(["/home/bojyun/VerilogCoder2/artifacts_test/verilog_tmp_dir/test.v"])
+    print(debug_graph_tracer.get_k_control_signals(['Out_byte', 'CE'], k=3, signal_only=True))

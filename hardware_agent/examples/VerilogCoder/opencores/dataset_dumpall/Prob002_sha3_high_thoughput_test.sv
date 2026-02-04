@@ -63,7 +63,7 @@ stats stats1;
 
 //link:
 // 3) Instances
-TopModule dut (
+TopModule top_module1 (
   .clk(clk),
   .reset(reset),
   .in(in),
@@ -75,7 +75,7 @@ TopModule dut (
   .out_ready(out_ready_dut)
 );
 
-RefModule ref_mdl (
+RefModule good1 (
   .clk(clk),
   .reset(reset),
   .in(in),

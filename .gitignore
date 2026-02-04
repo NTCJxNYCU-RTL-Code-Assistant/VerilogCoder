@@ -225,7 +225,7 @@ hardware_agent/examples/fv_backup/hardware_agent/examples/fv/
 hardware_agent/examples/fv/
 hardware_agent/examples/fv_backup/
 hardware_agent/examples/fv_backup/autogen/oai/client_with_secrets.py
-
+hardware_agent/examples/VerilogCoder/opencores/dataset_dumpall/*/
 artifacts*/
 iverilog/
 OAI_CONFIG_LIST
@@ -238,3 +238,4 @@ cksum_dir/
 
 parser.out
 parsetab.py
+

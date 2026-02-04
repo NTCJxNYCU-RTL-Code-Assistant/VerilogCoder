@@ -116,6 +116,16 @@ def tabular_via_dataframe(vcd_path,
         else:
             string += field
         return string
+        
+    def hex_signal_to_bin(c):
+        c = c.lower()
+    
+        if c == 'x':
+            return 'xxxx'
+        if c == 'z':
+            return 'zzzz'
+    
+        return format(int(c, 16), '04b')
 
     vcd = VCDVCD(vcd_path)
     print(vcd.endtime)
@@ -149,33 +159,22 @@ def tabular_via_dataframe(vcd_path,
             tb_signals.append(signal_fields[-1])
         # good1 is the reference design; top_module1 is the generated design
         elif "top_module1" in signal_fields:
-            transformed_signals.append(
-                insert_field_before_bracket(signal_fields[-1], "_dut"))
+            transformed_signals.append(insert_field_before_bracket(signal_fields[-1], "_dut"))
         # should not pull out reference waveform since the internal signal is not correct
-        elif "good1" in signal_fields and signal_fields[
-                -1] in ori_mismatch_columns:
-            transformed_signals.append(
-                insert_field_before_bracket(signal_fields[-1], "_ref"))
+        elif "good1" in signal_fields and signal_fields[-1] in ori_mismatch_columns:
+            transformed_signals.append(insert_field_before_bracket(signal_fields[-1], "_ref"))
         else:
-            transformed_signals.append(signal_fields[-2] + "_" +
-                                       signal_fields[-1])
+            transformed_signals.append(signal_fields[-2] + "_" + signal_fields[-1])
     assert (len(transformed_signals) == n_col)
-
-    df = pd.DataFrame(matrix,
-                      columns=[i.split(".")[-1] for i in transformed_signals
-                               ]).dropna(subset='clk')
+    df = pd.DataFrame(matrix, columns=[i.split(".")[-1] for i in transformed_signals]).dropna(subset='clk')
     df = df.ffill()
     df = df.loc[:, ~df.columns.duplicated()]
     # Mark: get original output mismatch columns to make sure there is difference in the last offset line
     ori_mismatch_columns_dut = [
-        i for i in df.columns
-        if any((j == get_raw_signal_name(i) and ("_dut" in i))
-               for j in ori_mismatch_columns)
+        i for i in df.columns if any((j == get_raw_signal_name(i) and ("_dut" in i)) for j in ori_mismatch_columns)
     ]
     ori_mismatch_columns_ref = [
-        i for i in df.columns
-        if any((j == get_raw_signal_name(i) and ("_ref" in i))
-               for j in ori_mismatch_columns)
+        i for i in df.columns if any((j == get_raw_signal_name(i) and ("_ref" in i)) for j in ori_mismatch_columns)
     ]
     ori_mismatch_columns_dut = sorted(ori_mismatch_columns_dut)
     ori_mismatch_columns_ref = sorted(ori_mismatch_columns_ref)
@@ -191,8 +190,7 @@ def tabular_via_dataframe(vcd_path,
                 mismatch_columns_tmp.append(i)
     """
     mismatch_columns = [
-        i for i in df.columns if any((j in i and ("_dut" in i or "_ref" in i))
-                                     for j in mismatch_columns)
+        i for i in df.columns if any((j in i and ("_dut" in i or "_ref" in i)) for j in mismatch_columns)
     ]
     
     # print(mismatch_columns_tmp)
@@ -200,8 +198,7 @@ def tabular_via_dataframe(vcd_path,
     first_row = df.loc[0:1][mismatch_columns]
     # tail_rows = df.loc[1: offset + 1][mismatch_columns]
     # Whether to drop duplicates?
-    tail_rows = df.loc[1:offset +
-                       1][mismatch_columns].drop_duplicates(keep='first')
+    tail_rows = df.loc[1:offset +1][mismatch_columns].drop_duplicates(keep='first')
     # Mark: Keep 4 clock cycles
     if offset + window_size > df.shape[0]:
         future_rows = df.loc[offset + 1:][mismatch_columns]
@@ -218,8 +215,7 @@ def tabular_via_dataframe(vcd_path,
     #                                     if x != -999 else 'x')
 
     # Mark: Add to modify the offset if needed
-    print(ori_mismatch_columns_ref, ori_mismatch_columns_dut,
-          ori_mismatch_columns)
+    print(ori_mismatch_columns_ref, ori_mismatch_columns_dut, ori_mismatch_columns)
     different_at_last = False
     for i in range(len(ori_mismatch_columns_dut)):
         s_dut = ori_mismatch_columns_dut[i]
@@ -245,13 +241,11 @@ def tabular_via_dataframe(vcd_path,
         if bool(re.search('\[\d+:0\]', ms)):
             # matched_res = re.search('\[\d+:0\]', ms); change to binary
             try:
-                ms_binary = ''.join(
-                    bin(int(c, 16))[2:].zfill(4) for c in df.iloc[-1][ms])
+                ms_binary = ''.join(hex_signal_to_bin(c) for c in df.iloc[-1][ms])
                 binary_string_mismatch[ms] = ms_binary
             except:
                 binary_string_mismatch[ms] = str(df.iloc[-1][ms])
-                print("Failed to transform to binary ", ms, " target line: ",
-                      df.iloc[-1][ms])
+                print("Failed to transform to binary ", ms, " target line: ",df.iloc[-1][ms])
         else:
             binary_string_mismatch[ms] = str(df.iloc[-1][ms])
     binary_string_mismatch = dict(sorted(binary_string_mismatch.items()))
@@ -322,8 +316,7 @@ def get_tabular(method: str,
         if gen_func is None:
             raise Exception(f"get tabular do not support {method} method.")
 
-        return gen_func(tmp_vcd_path, offset, mismatch_columns, window_size,
-                        ori_mismatch_columns)
+        return gen_func(tmp_vcd_path, offset, mismatch_columns, window_size, ori_mismatch_columns)
 
 
 # From Yun-Da; Probably will not use it
@@ -364,14 +357,8 @@ class WaveformTabular():
                 f.seek(0)
 
                 mismatch_columns, offset = parse_mismatch(test_output)
-                mismatch_columns.extend([
-                    "counter",
-                    "state",
-                    "done",
-                    "in",
-                    "data",
-                    "byte_r",
-                ])
+                mismatch_columns.extend( ['Out_byte', 'add_pow1', 'add_pow2', 'add_pow3', 'add_dec1', 'poly_ready', 'O1', 'O2', 'O3', 'O4', 'O5', 'O6', 'O7', 'O8', 'O9', 'O10', 'O11', 'O12', 'O13', 'O14', 'O15', 'O16', 'P1', 'P3', 'P5', 'P7', 'clk', 'reset', 'Sm_ready', 'Sm1', 'Sm2', 'Sm3', 'Sm4', 'Sm5', 'Sm6', 'Sm7', 'Sm8', 'Sm9', 'Sm10', 'Sm11', 'Sm12', 'Sm13', 'Sm14', 'Sm15', 'Sm16', 'L_ready', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'pow1', 'pow2', 'pow3', 'dec1'])
+                ori_mismatch_columns = ['Out_byte', 'add_pow1', 'add_pow2', 'add_pow3', 'add_dec1', 'poly_ready', 'O1', 'O2', 'O3', 'O4', 'O5', 'O6', 'O7', 'O8', 'O9', 'O10', 'O11', 'O12', 'O13', 'O14', 'O15', 'O16', 'P1', 'P3', 'P5', 'P7', 'clk', 'reset', 'Sm_ready', 'Sm1', 'Sm2', 'Sm3', 'Sm4', 'Sm5', 'Sm6', 'Sm7', 'Sm8', 'Sm9', 'Sm10', 'Sm11', 'Sm12', 'Sm13', 'Sm14', 'Sm15', 'Sm16', 'L_ready', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'pow1', 'pow2', 'pow3', 'dec1']
                 window_size = 20
 
                 gen_func = {
@@ -383,7 +370,7 @@ class WaveformTabular():
                         f"get tabular do not support {method} method.")
 
                 return gen_func(tmp_vcd_path, offset, mismatch_columns,
-                                window_size)
+                                window_size, ori_mismatch_columns)
 
         tabular = get_tabular('dataframe', vcd_path)
         return tabular
@@ -391,7 +378,7 @@ class WaveformTabular():
 
 if __name__ == '__main__':
     vcd_waveanalyze = WaveformTabular()
-    cmds = "vvp /home/scratch.chiatungh_nvresearch/hardware-agent-marco/verilog_tool_tmp/test.vvp".split(
+    cmds = "vvp /home/bojyun/VerilogCoder2/artifacts_test/verilog_tmp_dir/test.vvp".split(
         ' ')
     print(" ".join(cmds))
     try:
@@ -403,8 +390,7 @@ if __name__ == '__main__':
         raise RuntimeError(
             "command '{}' return with error (code {}): {}".format(
                 e.cmd, e.returncode, e.output))
-
-    debug_wave = vcd_waveanalyze._run(vcd_path="./wave.vcd",
-                                      test_output=test_output)
+            
+    debug_wave = vcd_waveanalyze._run(vcd_path="./wave.vcd", test_output=test_output)
     if isinstance(debug_wave, str):
         print(debug_wave)

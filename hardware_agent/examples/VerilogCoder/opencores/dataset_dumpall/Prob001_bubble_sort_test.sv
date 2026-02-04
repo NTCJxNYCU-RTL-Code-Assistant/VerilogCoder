@@ -224,7 +224,7 @@ module tb;
 
 	// Instantiate the Unit Under Test
 	TopModule #(8,7)
-	dut (
+	top_module1 (
 		.clk(clk), 
 		.rst(rst), 
 		.load_i({load6_i,load5_i,load4_i,load3_i,load2_i,load1_i,load0_i}), 
@@ -238,7 +238,7 @@ module tb;
 
 	// Instantiate the Refmdl
 	RefModule #(8,7)
-	golden (
+	good1 (
 		.clk(clk), 
 		.rst(rst), 
 		.load_i({load6_i,load5_i,load4_i,load3_i,load2_i,load1_i,load0_i}), 

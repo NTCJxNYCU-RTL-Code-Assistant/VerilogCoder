@@ -3571,7 +3571,7 @@ module DP_RAM_ref (clk,we,re,address_read,address_write,data_in,data_out);
                 mem[i] = 0;
         end 
 
-    always @ (posedge(clk))
+    always @ (posedge clk)
     begin
         if (we==1'b1)
             begin
@@ -3853,7 +3853,7 @@ module GF_matrix_ascending_binary_ref (clk,re,address_read,data_out);
     mem[254]<= 'b01011000;
     mem[255]<= 'b10101111;
     end 
-    always @ (posedge(clk))
+    always @ (posedge clk)
     begin
         if (re==1'b1)
             begin
@@ -4130,7 +4130,7 @@ module GF_matrix_dec_ref (clk,re,address_read,data_out);
     mem[254]<= 'b01000111;
     mem[255]<= 'b10001110;
     end 
-    always @ (posedge(clk))
+    always @ (posedge clk)
     begin
         if (re==1'b1)
             begin

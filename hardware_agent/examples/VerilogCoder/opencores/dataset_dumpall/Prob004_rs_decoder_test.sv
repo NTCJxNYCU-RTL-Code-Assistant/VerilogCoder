@@ -61,7 +61,7 @@ stats stats1;
 
 //link:
 // 3) Instances
-TopModule dut (
+TopModule top_module1 (
   .clk(clk),
   .reset(reset),
   .CE(CE),
@@ -71,7 +71,7 @@ TopModule dut (
   .Valid_out(Valid_out_dut)
 );
 
-RefModule ref_mdl (
+RefModule good1 (
   .clk(clk),
   .reset(reset),
   .CE(CE),
@@ -82423,7 +82423,7 @@ endtask
            drive_stimuli_97();
            drive_stimuli_98();
            drive_stimuli_99();
-           drive_stimuli_100();                      
+           drive_stimuli_100();                 
            drive_end_CE();
         end
         repeat(100) begin

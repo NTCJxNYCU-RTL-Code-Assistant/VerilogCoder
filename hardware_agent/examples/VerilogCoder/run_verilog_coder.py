@@ -130,7 +130,7 @@ print("[Info]: VerilogCoder llm configs = ", llm_configs)
 
 # Load verilog problem sets
 # Add questions
-user_task_ids = {'sha3'}
+user_task_ids = {'rs_decoder'}
 # user_task_ids = {'bubble_sort'}
 #user_task_ids = {'rs_decoder'}
 # user_task_ids = {'ece241_2014_q4'}
