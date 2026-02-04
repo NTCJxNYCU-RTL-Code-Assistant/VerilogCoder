@@ -161,8 +161,8 @@ def tabular_via_dataframe(vcd_path,
         elif "top_module1" in signal_fields:
             transformed_signals.append(insert_field_before_bracket(signal_fields[-1], "_dut"))
         # should not pull out reference waveform since the internal signal is not correct
-        elif "good1" in signal_fields and signal_fields[-1] in ori_mismatch_columns:
-            transformed_signals.append(insert_field_before_bracket(signal_fields[-1], "_ref"))
+        elif "good1" in signal_fields and signal_fields[-1].split('[')[0] in ori_mismatch_columns:
+              transformed_signals.append(insert_field_before_bracket(signal_fields[-1], "_ref"))
         else:
             transformed_signals.append(signal_fields[-2] + "_" + signal_fields[-1])
     assert (len(transformed_signals) == n_col)
